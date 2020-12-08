@@ -837,6 +837,10 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 		rc = dsi_display_status_bta_request(dsi_display);
 	} else if (status_mode == ESD_MODE_PANEL_TE) {
 		rc = dsi_display_status_check_te(dsi_display);
+#if 1//def CONFIG_TOUCHSCREEN_FTS
+	} else if (status_mode == ESD_MODE_I2C_REG_READ) {
+		return true;
+#endif
 	} else {
 		DSI_WARN("Unsupported check status mode: %d\n", status_mode);
 		panel->esd_config.esd_enabled = false;

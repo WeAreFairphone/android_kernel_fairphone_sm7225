@@ -3183,10 +3183,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 	esd_config->status_mode = ESD_MODE_MAX;
 	esd_config->esd_enabled = utils->read_bool(utils->data,
 		"qcom,esd-check-enabled");
-
+	pr_err("%s --------esd_config->esd_enabled1 = %d \n",__func__,esd_config->esd_enabled);
 	if (!esd_config->esd_enabled)
 		return 0;
-
+	pr_err("%s --------esd_config->esd_enabled2 = %d \n",__func__,esd_config->esd_enabled);
 	rc = utils->read_string(utils->data,
 			"qcom,mdss-dsi-panel-status-check-mode", &string);
 	if (!rc) {
@@ -3194,6 +3194,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 			esd_config->status_mode = ESD_MODE_SW_BTA;
 		} else if (!strcmp(string, "reg_read")) {
 			esd_config->status_mode = ESD_MODE_REG_READ;
+#if 1//def CONFIG_TOUCHSCREEN_FTS
+		} else if (!strcmp(string, "i2c_reg_read")) {
+			esd_config->status_mode = ESD_MODE_I2C_REG_READ;
+#endif
 		} else if (!strcmp(string, "te_signal_check")) {
 			if (panel->panel_mode == DSI_OP_CMD_MODE) {
 				esd_config->status_mode = ESD_MODE_PANEL_TE;
