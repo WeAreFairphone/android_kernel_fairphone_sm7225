@@ -1311,4 +1311,11 @@ config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
 
+config SND_SMARTPA_AW881XX
+	tristate "AW881XX"
+	depends on I2C
+
+config T2M_SND_N10
+	tristate "T2M audio changes for N10"
+
 endmenu
