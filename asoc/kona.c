@@ -6839,8 +6839,13 @@ static struct snd_soc_dai_link msm_mi2s_be_dai_links[] = {
 		.stream_name = "Quinary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.4",
 		.platform_name = "msm-pcm-routing",
+#ifdef CONFIG_SND_SMARTPA_AW881XX
+		.codec_name = "aw881xx_smartpa",
+		.codec_dai_name = "aw881xx-aif",
+#else
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
+#endif
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
