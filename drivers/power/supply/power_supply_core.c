@@ -122,7 +122,12 @@ void power_supply_changed(struct power_supply *psy)
 	psy->changed = true;
 	pm_stay_awake(&psy->dev);
 	spin_unlock_irqrestore(&psy->changed_lock, flags);
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	queue_work(private_chg_wq, &psy->changed_work);
+#else
 	schedule_work(&psy->changed_work);
+#endif
 }
 EXPORT_SYMBOL_GPL(power_supply_changed);
 

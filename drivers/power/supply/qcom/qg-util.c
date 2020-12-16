@@ -374,12 +374,13 @@ int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 		pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
 		return rc;
 	}
-/*zxzadd just for power on, should remove below code when device power on !!!  begin */
-	pr_err("batt_temp11 = %d\n", *temp);
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+#if defined(DISABLE_TEMPERATURE_DETECTION_AND_THERMAL_POLICY)
+	pr_debug("temperature fixed at 25 degree! The real temp is=%d\n", *temp);
 	*temp = 250;
-	pr_err("fix batt_temp22 = %d\n", *temp);
-/*zxzadd just for power on, should remove below code when device power on !!!  end */
+#endif
+#endif
 
 	return 0;
 }

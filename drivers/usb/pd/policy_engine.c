@@ -3,6 +3,10 @@
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+#define pr_fmt(fmt) "[PE]:" fmt
+#endif
+
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/hrtimer.h>
@@ -193,6 +197,36 @@ enum vdm_state {
 };
 
 static void *usbpd_ipc_log;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+enum {
+	LOG_LEVEL_ERR = BIT(0),
+	LOG_LEVEL_DEBUG = BIT(1),
+	LOG_LEVEL_ALL = 0xFF,
+};
+
+static int pdlog = CONFIG_USB_PD_LOG_LVL;
+module_param(pdlog, int, S_IRUGO|S_IWUSR);
+
+#define usbpd_err(dev, fmt, ...) \
+	do { \
+		if (pdlog & LOG_LEVEL_ERR) { \
+			ipc_log_string(usbpd_ipc_log, "%s(): " fmt, __func__, \
+					##__VA_ARGS__); \
+			pr_err_ratelimited("%s: " fmt, __func__, ##__VA_ARGS__); \
+		} \
+	} while (0)
+
+#define usbpd_dbg(dev, fmt, ...) \
+	do { \
+		if (pdlog & LOG_LEVEL_DEBUG) \
+			ipc_log_string(usbpd_ipc_log, "%s(): " fmt, __func__, \
+					##__VA_ARGS__); \
+			pr_debug("%s: " fmt, __func__, ##__VA_ARGS__); \
+	} while (0)
+
+#define usbpd_info usbpd_err
+#define usbpd_warn usbpd_dbg
+#else
 #define usbpd_dbg(dev, fmt, ...) do { \
 	ipc_log_string(usbpd_ipc_log, "%s: %s: " fmt, dev_name(dev), __func__, \
 			##__VA_ARGS__); \
@@ -216,8 +250,13 @@ static void *usbpd_ipc_log;
 			##__VA_ARGS__); \
 	dev_err(dev, fmt, ##__VA_ARGS__); \
 	} while (0)
+#endif
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+#define NUM_LOG_PAGES		(30)
+#else
 #define NUM_LOG_PAGES		10
+#endif
 
 /* Timeouts (in ms) */
 #define ERROR_RECOVERY_TIME	25
@@ -351,9 +390,18 @@ static void *usbpd_ipc_log;
 #define STOP_USB_HOST		0
 #define START_USB_HOST		1
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+#define PD_MIN_SINK_CURRENT	500
+#else
 #define PD_MIN_SINK_CURRENT	900
+#endif
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+static const u32 default_src_caps[] = { 0x26019032 };	/* VSafe5V @ 0.5A */
+#else
 static const u32 default_src_caps[] = { 0x36019096 };	/* VSafe5V @ 1.5A */
+#endif
+
 static const u32 default_snk_caps[] = { 0x2601912C };	/* VSafe5V @ 3A */
 
 struct vdm_tx {
@@ -541,6 +589,10 @@ static unsigned int get_connector_type(struct usbpd *pd)
 
 static inline void stop_usb_host(struct usbpd *pd)
 {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	usbpd_info(&pd->dev, "stop usb host \n");
+#endif
+
 	extcon_set_state_sync(pd->extcon, EXTCON_USB_HOST, 0);
 }
 
@@ -550,11 +602,19 @@ static inline void start_usb_host(struct usbpd *pd, bool ss)
 	union extcon_property_value val;
 	int ret = 0;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	usbpd_info(&pd->dev, "start usb host with ss:%d, cc=%d\n", ss, cc);
+#endif
+
 	val.intval = (cc == ORIENTATION_CC2);
 	extcon_set_property(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_TYPEC_POLARITY, val);
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	val.intval = 0;
+#else
 	val.intval = ss;
+#endif
 	extcon_set_property(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_SS, val);
 
@@ -570,6 +630,10 @@ static inline void start_usb_host(struct usbpd *pd, bool ss)
 
 static inline void stop_usb_peripheral(struct usbpd *pd)
 {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	usbpd_info(&pd->dev, "stop usb peripheral \n");
+#endif
+
 	extcon_set_state_sync(pd->extcon, EXTCON_USB, 0);
 }
 
@@ -578,14 +642,26 @@ static inline void start_usb_peripheral(struct usbpd *pd)
 	enum plug_orientation cc = usbpd_get_plug_orientation(pd);
 	union extcon_property_value val;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	usbpd_info(&pd->dev, "start usb peripheral with cc=%d\n", cc);
+#endif
+
 	val.intval = (cc == ORIENTATION_CC2);
 	extcon_set_property(pd->extcon, EXTCON_USB,
 			EXTCON_PROP_USB_TYPEC_POLARITY, val);
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	val.intval = 0;
+#else
 	val.intval = 1;
+#endif
 	extcon_set_property(pd->extcon, EXTCON_USB, EXTCON_PROP_USB_SS, val);
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	val.intval = 0;
+#else
 	val.intval = pd->typec_mode > POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ? 1 : 0;
+#endif
 	extcon_set_property(pd->extcon, EXTCON_USB,
 			EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT, val);
 
@@ -2022,15 +2098,30 @@ static int enable_vbus(struct usbpd *pd)
 	if (!pd->vbus) {
 		pd->vbus = devm_regulator_get(pd->dev.parent, "vbus");
 		if (IS_ERR(pd->vbus)) {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+			pd->vbus = NULL;
+#endif
 			usbpd_err(&pd->dev, "Unable to get vbus\n");
 			return -EAGAIN;
 		}
 	}
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (!pd->vbus_enabled) {
+		usbpd_err(&pd->dev, "[Enable]:otg_vbus\n");
+		ret = regulator_enable(pd->vbus);
+		if (ret)
+			usbpd_err(&pd->dev, "Unable to enable vbus (%d)\n", ret);
+
+		pd->vbus_enabled = true;
+	}
+#else
 	ret = regulator_enable(pd->vbus);
 	if (ret)
 		usbpd_err(&pd->dev, "Unable to enable vbus (%d)\n", ret);
 	else
 		pd->vbus_enabled = true;
+#endif
 
 	count = 10;
 	/*
@@ -3405,12 +3496,23 @@ static void handle_state_vcs_wait_for_vconn(struct usbpd *pd,
 /* Enters new state and executes actions on entry */
 static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	usbpd_dbg(&pd->dev, "cs: %d->%d\n",
+			pd->current_state, next_state);
+	usbpd_dbg(&pd->dev, "pr:%d, dr:%d, tm:%d, ips:%d, hrr:%d\n",
+			pd->current_pr, pd->current_dr, 
+			pd->typec_mode, pd->in_pr_swap, 
+			pd->hard_reset_recvd);
+#endif
+
 	if (pd->hard_reset_recvd) /* let usbpd_sm handle it */
 		return;
 
+#if !defined(CONFIG_TCT_PM7250_COMMON)
 	usbpd_dbg(&pd->dev, "%s -> %s\n",
 			usbpd_state_strings[pd->current_state],
 			usbpd_state_strings[next_state]);
+#endif
 
 	pd->current_state = next_state;
 
@@ -3515,15 +3617,23 @@ static void handle_disconnect(struct usbpd *pd)
 			POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 
 	if (pd->vbus_enabled) {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		usbpd_err(&pd->dev, "[Disable]:otg_vbus\n");
+#endif
 		regulator_disable(pd->vbus);
 		pd->vbus_enabled = false;
 	}
 
 	reset_vdm_state(pd);
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	stop_usb_host(pd);
+	stop_usb_peripheral(pd);
+#else
 	if (pd->current_dr == DR_UFP)
 		stop_usb_peripheral(pd);
 	else if (pd->current_dr == DR_DFP)
 		stop_usb_host(pd);
+#endif
 
 	pd->current_dr = DR_NONE;
 
@@ -3636,6 +3746,12 @@ static void usbpd_sm(struct work_struct *w)
 		list_del(&rx_msg->entry);
 	}
 	spin_unlock_irqrestore(&pd->rx_lock, flags);
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if(rx_msg)
+		usbpd_dbg(&pd->dev, "rx_msg={%04x,%04x}\n",
+				rx_msg->hdr, rx_msg->data_len);
+#endif
 
 	/* Disconnect? */
 	if (pd->current_pr == PR_NONE) {
@@ -3754,8 +3870,12 @@ static int usbpd_process_typec_mode(struct usbpd *pd,
 
 		pd->current_pr = PR_SINK;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		eval.intval = 0;
+#else
 		eval.intval = typec_mode > POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ?
 				1 : 0;
+#endif
 		extcon_set_property(pd->extcon, EXTCON_USB,
 				EXTCON_PROP_USB_TYPEC_MED_HIGH_CURRENT, eval);
 		break;
@@ -3774,8 +3894,17 @@ static int usbpd_process_typec_mode(struct usbpd *pd,
 		break;
 
 	case POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY:
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		usbpd_info(&pd->dev, "Type-C Sink Debug Accessory connected\n");
+#else
 		usbpd_info(&pd->dev, "Type-C Debug Accessory connected\n");
+#endif
 		break;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	case POWER_SUPPLY_TYPEC_SOURCE_DEBUG_ACCESSORY:
+		usbpd_info(&pd->dev, "Type-C Source Debug Accessory connected\n");
+		break;
+#endif
 	case POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER:
 		usbpd_info(&pd->dev, "Type-C Analog Audio Adapter connected\n");
 		break;
@@ -3826,9 +3955,14 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 			return ret;
 		}
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		if (val.intval == POWER_SUPPLY_TYPE_USB ||
+			val.intval == POWER_SUPPLY_TYPE_USB_CDP) {
+#else
 		if (val.intval == POWER_SUPPLY_TYPE_USB ||
 			val.intval == POWER_SUPPLY_TYPE_USB_CDP ||
 			val.intval == POWER_SUPPLY_TYPE_USB_FLOAT) {
+#endif
 			usbpd_dbg(&pd->dev, "typec mode:%d type:%d\n",
 				typec_mode, val.intval);
 			pd->typec_mode = typec_mode;
@@ -3927,6 +4061,13 @@ static int usbpd_typec_dr_set(const struct typec_capability *cap,
 	bool do_swap = false;
 	int ret;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (1) {
+		pr_err("Not support dr set\n");
+		return -ENOTSUPP;
+	}
+#endif
+
 	usbpd_dbg(&pd->dev, "Setting data role to %d\n", role);
 
 	if (role == TYPEC_HOST) {
@@ -3964,6 +4105,13 @@ static int usbpd_typec_pr_set(const struct typec_capability *cap,
 	bool do_swap = false;
 	int ret;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (1) {
+		pr_err("Not support pr set\n");
+		return -ENOTSUPP;
+	}
+#endif
+
 	usbpd_dbg(&pd->dev, "Setting power role to %d\n", role);
 
 	if (role == TYPEC_SOURCE) {
@@ -4000,6 +4148,13 @@ static int usbpd_typec_port_type_set(const struct typec_capability *cap,
 	struct usbpd *pd = container_of(cap, struct usbpd, typec_caps);
 	union power_supply_propval value;
 	int wait_count = 5;
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (1) {
+		pr_err("Not support mode set\n");
+		return -ENOTSUPP;
+	}
+#endif
 
 	usbpd_dbg(&pd->dev, "Setting mode to %d\n", type);
 
@@ -4114,7 +4269,11 @@ static ssize_t initial_pr_show(struct device *dev,
 	struct usbpd *pd = dev_get_drvdata(dev);
 	const char *pr = "none";
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEBUG_ACCESSORY)
+#else
 	if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT)
+#endif
 		pr = "sink";
 	else if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SINK)
 		pr = "source";
@@ -4144,7 +4303,11 @@ static ssize_t initial_dr_show(struct device *dev,
 	struct usbpd *pd = dev_get_drvdata(dev);
 	const char *dr = "none";
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEBUG_ACCESSORY)
+#else
 	if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT)
+#endif
 		dr = "ufp";
 	else if (pd->typec_mode >= POWER_SUPPLY_TYPEC_SINK)
 		dr = "dfp";

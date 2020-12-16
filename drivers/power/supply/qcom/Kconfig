@@ -162,6 +162,15 @@ config HL6111R
 	  sizes. The HL6111R has voltage, current and temperature
 	  protection mechanisms, an I2C interface, and a PSNS output.
 
+# [start] dis-/enable chg common patches based on pm7250b chipset.
+config TCT_PM7250_COMMON
+	bool "Enable common chg patches for pm7250&pm7250B platform"
+	default n
+	select TCT_INIT_SPEED_UP
+	help
+	  Say Y here to enable common chg patches.
+	  Say N to disable these chg patches.
+# [ended]
 config SMB1398_CHARGER
 	tristate "SMB1398 power supply framework based driver"
 	depends on MFD_I2C_PMIC

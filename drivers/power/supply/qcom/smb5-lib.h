@@ -95,7 +95,13 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+#define DCP_CURRENT_UA			2000000
+#else
 #define DCP_CURRENT_UA			1500000
+#endif
+
 #define HVDCP_CURRENT_UA		3000000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
@@ -104,6 +110,14 @@ enum print_reason {
 #define DCIN_ICL_MAX_UA			1500000
 #define DCIN_ICL_STEP_UA		100000
 #define ROLE_REVERSAL_DELAY_MS		500
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+
+#define QC3_ICL_MAX	2000000
+#define QC2_ICL_MAX	1500000
+#define HW_ICL_MAX	2050000
+#endif
+
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -399,6 +413,11 @@ struct smb_charger {
 	struct mutex		dpdm_lock;
 	struct mutex		typec_lock;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	bool				apsd_rerun_done;
+	bool				disable_suspend_on_collapse;
+#endif
+
 	/* power supplies */
 	struct power_supply		*batt_psy;
 	struct power_supply		*usb_psy;
@@ -506,9 +525,15 @@ struct smb_charger {
 	int			system_temp_level;
 	int			thermal_levels;
 	int			*thermal_mitigation;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	int			*thermal_mitigation_lcdon;
+#endif
 	int			dcp_icl_ua;
 	int			fake_capacity;
 	int			fake_batt_status;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	int			real_soc;
+#endif
 	bool			step_chg_enabled;
 	bool			sw_jeita_enabled;
 	bool			jeita_arb_enable;
@@ -676,6 +701,11 @@ irqreturn_t typec_or_rid_detection_change_irq_handler(int irq, void *data);
 irqreturn_t temp_change_irq_handler(int irq, void *data);
 irqreturn_t usbin_ov_irq_handler(int irq, void *data);
 irqreturn_t sdam_sts_change_irq_handler(int irq, void *data);
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+int recheck_unknown_typec(struct smb_charger *chg);
+#endif
+
 int smblib_get_prop_input_suspend(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_present(struct smb_charger *chg,
