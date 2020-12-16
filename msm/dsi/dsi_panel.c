@@ -33,6 +33,12 @@
 #define DEFAULT_PANEL_PREFILL_LINES	25
 #define MIN_PREFILL_LINES      35
 
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+bool g_lcd_on = true;
+#endif
+
+
 enum dsi_dsc_ratio_type {
 	DSC_8BPC_8BPP,
 	DSC_10BPC_8BPP,
@@ -4372,6 +4378,12 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		       panel->name, rc);
 	else
 		panel->panel_initialized = true;
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		g_lcd_on = panel->panel_initialized;
+#endif
+
+
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -4458,6 +4470,9 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	}
 	panel->panel_initialized = false;
 	panel->power_mode = SDE_MODE_DPMS_OFF;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		g_lcd_on = false;
+#endif
 
 	mutex_unlock(&panel->panel_lock);
 	return rc;
