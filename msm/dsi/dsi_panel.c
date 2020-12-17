@@ -3200,7 +3200,7 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 			esd_config->status_mode = ESD_MODE_SW_BTA;
 		} else if (!strcmp(string, "reg_read")) {
 			esd_config->status_mode = ESD_MODE_REG_READ;
-#if 1//def CONFIG_TOUCHSCREEN_FTS
+#ifdef CONFIG_TOUCHSCREEN_FTS
 		} else if (!strcmp(string, "i2c_reg_read")) {
 			esd_config->status_mode = ESD_MODE_I2C_REG_READ;
 #endif
