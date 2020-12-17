@@ -21,6 +21,10 @@
 #include "sde_dbg.h"
 #include "dsi_parser.h"
 
+#ifdef CONFIG_TOUCHSCREEN_FTS
+extern int fts_esd_check(void);
+#endif
+
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
 
@@ -837,9 +841,9 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 		rc = dsi_display_status_bta_request(dsi_display);
 	} else if (status_mode == ESD_MODE_PANEL_TE) {
 		rc = dsi_display_status_check_te(dsi_display);
-#if 1//def CONFIG_TOUCHSCREEN_FTS
+#ifdef CONFIG_TOUCHSCREEN_FTS
 	} else if (status_mode == ESD_MODE_I2C_REG_READ) {
-		return true;
+		rc = fts_esd_check();
 #endif
 	} else {
 		DSI_WARN("Unsupported check status mode: %d\n", status_mode);
