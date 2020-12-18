@@ -860,50 +860,6 @@ static int fts_report_buffer_init(struct fts_ts_data *ts_data)
     return 0;
 }
 
-#if 1
-
-static int fts_vdd_power_source_init(struct fts_ts_data *ts_data)
-{
-    int ret = 0;
-    FTS_FUNC_ENTER();
-	pr_err("zxz-----%s-----11-----\n",__func__);
-    ts_data->vdd = regulator_get(ts_data->dev, "vdd");
-    if (IS_ERR_OR_NULL(ts_data->vdd)) {
-        ret = PTR_ERR(ts_data->vdd);
-        FTS_ERROR("get vdd regulator failed,ret=%d", ret);
-        return ret;
-    }
-	pr_err("zxz-----%s----22------\n",__func__);
-
-    if (regulator_count_voltages(ts_data->vdd) > 0) {
-        ret = regulator_set_voltage(ts_data->vdd, 3000000,
-                                    3000000);
-        if (ret) {
-            FTS_ERROR("vdd regulator set_vtg failed ret=%d", ret);
-            regulator_put(ts_data->vdd);
-            return ret;
-        }
-    }
-
-	pr_err("zxz-----%s-----33-----\n",__func__);
-
-	ret = regulator_enable(ts_data->vdd);
-	if (ret) {
-		FTS_ERROR("enable vdd regulator failed,ret=%d", ret);
-	}
-	pr_err("zxz-----%s-----44-----\n",__func__);
-
-    FTS_FUNC_EXIT();
-    return ret;
-}
-
-
-
-#endif
-
-
-
-
 
 
 #if FTS_POWER_SOURCE_CUST_EN
@@ -1617,13 +1573,6 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 #endif
 
 
-#if 1
-	fts_vdd_power_source_init(ts_data);
-    if (ret) {
-        FTS_ERROR("fail to get power(regulator)");
-
-    }
-#endif
 
 	ts_data->vdd_io = regulator_get(ts_data->dev, "vdd_io");
 	if (IS_ERR_OR_NULL(ts_data->vdd_io)) {
