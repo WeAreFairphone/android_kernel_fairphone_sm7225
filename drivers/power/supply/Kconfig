@@ -645,6 +645,12 @@ config CHARGER_CROS_USBPD
 	  what is connected to USB PD ports from the EC and converts
 	  that into power_supply properties.
 
+config BATTERY_BQ27541_HDQ
+       tristate "BQ27541 battery driver"
+       depends on OF
+       help
+         Say Y here to enable support for batteries with BQ27541 (HDQ) chips.
+
 source "drivers/power/supply/qcom/Kconfig"
 
 endif # POWER_SUPPLY
