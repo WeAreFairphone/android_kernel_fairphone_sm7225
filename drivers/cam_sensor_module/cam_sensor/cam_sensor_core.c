@@ -4,6 +4,10 @@
  */
 
 #include <linux/module.h>
+/* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+#include <linux/miscdevice.h>
+#include <linux/i2c-dev.h>
+/* MODIFIED-END by yixiang.wu,BUG-10277816*/
 #include <cam_sensor_cmn_header.h>
 #include "cam_sensor_core.h"
 #include "cam_sensor_util.h"
@@ -678,6 +682,475 @@ void cam_sensor_shutdown(struct cam_sensor_ctrl_t *s_ctrl)
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
 }
 
+/* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+//s_ctrl->io_master_info.client yanhao
+
+
+static int32_t se4750_mipi_i2c_rxdata(struct  i2c_client *client,
+	unsigned char *rxdata, int data_length)
+{
+	int32_t rc = 0;
+	uint16_t saddr = client->addr;
+	struct i2c_msg msgs[] = {
+		{
+			.addr  = saddr,
+			.flags = I2C_M_RD,
+			.len   = data_length,
+			.buf   = rxdata,
+		},
+	};
+	rc = i2c_transfer(client->adapter, msgs, 1);
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata failed 0x%x", saddr);
+	return rc;
+}
+
+static int32_t se4750_mipi_i2c_txdata(struct i2c_client *client,
+				unsigned char *txdata, int length)
+{
+	int32_t rc = 0;
+	uint16_t saddr =  client->addr;
+	struct i2c_msg msg[] = {
+		{
+			.addr = saddr,
+			.flags = 0,
+			.len = length,
+			.buf = txdata,
+		 },
+	};
+	rc = i2c_transfer(client->adapter, msg, 1);
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata faild 0x%x rc=%d", saddr,rc);
+	return rc;
+}
+
+
+
+
+int streamOn_cmds(struct  i2c_client *client){
+	int rc = 0;
+	int i = 0;
+	int retry = 30;
+	unsigned char streamOn_enableHW[3]={0x84,0x01,0x7b};
+	unsigned char streamOn_enableMIPI[3]={0x86,0x03,0x77};
+	unsigned char streamOn_enableAimOn[3]={0x55,0x01,0xaa};
+	unsigned char streamOn_enableIllumOn[3]={0x59,0x01,0xa6};
+	unsigned char streamOn_enableAcqOn[3]={0x58,0x01,0xa7};
+	unsigned char respbuf[2] = {0};
+
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_txdata(client,streamOn_enableHW,3);
+		if(rc > 0)
+		{
+			break;
+		}
+		else
+		{
+			msleep(1);
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableHW failed rc=%d retry=%d", rc, i);
+		}
+	}
+
+	if (i >= retry)
+	{
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableHW failed rc=%d",rc);
+		goto ERR_EXIT;
+	}
+
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_rxdata(client,respbuf,2);
+		if(rc > 0 &&  respbuf[0] == streamOn_enableHW[0] && respbuf[1] == 0x80){
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata streamOn_enableHW success! i =%d",i);
+			break;
+		}else{
+			msleep(1);
+		}
+	}
+
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_txdata(client,streamOn_enableMIPI,3);
+		if(rc > 0)
+		{
+			break;
+		}
+		else
+		{
+			msleep(1);
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableMIPI failed rc=%d retry=%d", rc, i);
+		}
+	}
+
+	if (i >= retry)
+	{
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableMIPI failed rc=%d",rc);
+		goto ERR_EXIT;
+	}
+
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_rxdata(client,respbuf,2);
+		if(rc > 0 &&  respbuf[0] == streamOn_enableMIPI[0] && respbuf[1] == 0x80){
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata streamOn_enableMIPI success! i =%d",i);
+			break;
+		}else{
+			msleep(1);
+		}
+	}
+
+    	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_txdata(client,streamOn_enableAimOn,3);
+		if(rc > 0)
+		{
+			break;
+		}
+		else
+		{
+			msleep(1);
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableAimOn failed rc=%d retry=%d", rc, i);
+		}
+	}
+
+	if (i >= retry)
+	{
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableAimOn failed rc=%d",rc);
+		goto ERR_EXIT;
+	}
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_rxdata(client,respbuf,2);
+		if(rc > 0 &&  respbuf[0] == streamOn_enableAimOn[0] && respbuf[1] == 0x80){
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata streamOn_enableAimOn success! i =%d",i);
+			break;
+		}else{
+			msleep(1);
+		}
+	}
+
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_txdata(client,streamOn_enableIllumOn,3);
+		if(rc > 0)
+		{
+			break;
+		}
+		else
+		{
+			msleep(1);
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableIllumOn failed rc=%d retry=%d", rc, i);
+		}
+	}
+
+	if (i >= retry)
+	{
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableIllumOn failed rc=%d",rc);
+		goto ERR_EXIT;
+	}
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_rxdata(client,respbuf,2);
+		if(rc > 0 &&  respbuf[0] == streamOn_enableIllumOn[0] && respbuf[1] == 0x80){
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata streamOn_enableIllumOn success! i =%d",i);
+			break;
+		}else{
+			msleep(1);
+		}
+	}
+
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_txdata(client,streamOn_enableAcqOn,3);
+		if(rc > 0)
+		{
+			break;
+		}
+		else
+		{
+			msleep(1);
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableAcqOn failed rc=%d retry=%d", rc, i);
+		}
+	}
+
+	if (i >= retry)
+	{
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOn_enableAcqOn failed rc=%d",rc);
+		goto ERR_EXIT;
+	}
+
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_rxdata(client,respbuf,2);
+		if(rc > 0 &&  respbuf[0] == streamOn_enableAcqOn[0] && respbuf[1] == 0x80){
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata streamOn_enableAcqOn success! i =%d",i);
+			break;
+		}else{
+			msleep(1);
+		}
+	}
+
+ERR_EXIT:
+	return rc;
+}
+
+
+int streamOff_cmds(struct  i2c_client *client){
+    int rc = 0;
+    int i = 0;
+	int retry = 30;
+//	unsigned char streamOff_AimOff[3]={0x55,0x00,0xab};
+//	unsigned char streamOff_IllumOff[3]={0x59,0x00,0xa7};
+    unsigned char streamOff_AcqOff[3]={0x58,0x00,0xa8};
+    unsigned char respbuf[2] = {0};
+#if 0
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_txdata(client,streamOff_AimOff,3);
+		if(rc > 0)
+		{
+			break;
+		}
+		else
+		{
+			msleep(1);
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOff_AimOff failed rc=%d retry=%d", rc, i);
+		}
+	}
+	if (i >= retry)
+	{
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOff_AimOff failed rc=%d",rc);
+		goto ERR_EXIT;
+	}
+
+    for(i=0; i < retry ; i++){
+        rc = se4750_mipi_i2c_rxdata(client,respbuf,2);
+        if(rc > 0 &&  respbuf[0] == streamOff_AimOff[0] && respbuf[1] == 0x80){
+            CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata streamOff_AimOff success! i =%d",i);
+            break;
+        }else{
+            msleep(1);
+        }
+    }
+
+	for(i=0; i < retry ; i++){
+		rc = rc = se4750_mipi_i2c_txdata(client,streamOff_IllumOff,3);
+		if(rc > 0)
+		{
+			break;
+		}
+		else
+		{
+			msleep(1);
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOff_IllumOff failed rc=%d retry=%d", rc, i);
+		}
+	}
+	if (i >= retry)
+	{
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOff_IllumOff failed rc=%d",rc);
+		goto ERR_EXIT;
+	}
+
+    for(i=0; i < retry ; i++){
+        rc = se4750_mipi_i2c_rxdata(client,respbuf,2);
+        if(rc > 0 &&  respbuf[0] == streamOff_IllumOff[0] && respbuf[1] == 0x80){
+            CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata streamOff_IllumOff success! i =%d",i);
+            break;
+        }else{
+            msleep(1);
+        }
+    }
+
+#endif
+	for(i=0; i < retry ; i++){
+		rc = se4750_mipi_i2c_txdata(client,streamOff_AcqOff,3);
+		if(rc > 0)
+		{
+			break;
+		}
+		else
+		{
+			msleep(1);
+			CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOff_AcqOff failed rc=%d retry=%d", rc, i);
+		}
+	}
+	if (i >= retry)
+	{
+		CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_txdata streamOff_AcqOff failed rc=%d",rc);
+		goto ERR_EXIT;
+	}
+
+    for(i=0; i < retry ; i++){
+        rc = se4750_mipi_i2c_rxdata(client,respbuf,2);
+        if(rc > 0 &&  respbuf[0] == streamOff_AcqOff[0] && respbuf[1] == 0x80){
+            CAM_ERR(CAM_SENSOR,"se4750_mipi_i2c_rxdata streamOff_AcqOff success! i =%d",i);
+            break;
+        }else{
+            msleep(1);
+        }
+    }
+
+ERR_EXIT:
+    return rc;
+}
+
+
+#define SE4750_MIPI_MISC_NAME           "sdl_control"
+#define SE4750_I2C_ADDR                 0x5C
+bool is_zebra_misc_device_exist = false;
+static int is_opened_by_SDL = 0;    // A flag to indicate if scan engine is opened by SDL.
+static struct cam_sensor_ctrl_t *g_s_ctrl;
+struct file_operations se4750_mipi_misc_fops;
+//#define MIMIC_ENGINE_RESPONSE 1
+#ifdef MIMIC_ENGINE_RESPONSE
+static int mimic_cmd_response = 0;
+static int last_cmd_op_code = 0;
+#endif
+
+static struct miscdevice se4750_mipi_misc_device = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name =SE4750_MIPI_MISC_NAME,
+    .fops = &se4750_mipi_misc_fops,
+};
+
+/* --------------------------------------------------------------------------
+ * 'misc' device file operations
+ */
+
+static int se4750_mipi_misc_open(struct inode* pINode, struct file* pFile)
+{
+    int rc = 0;
+    if (g_s_ctrl)
+    {
+        rc = cam_sensor_power_up(g_s_ctrl);
+        if (rc < 0) {
+            CAM_ERR(CAM_SENSOR, "power up failed");
+            //goto free_power_settings;
+        }
+    }
+    is_opened_by_SDL = 1;
+    pr_err("SDL open %s:%d is_opened_by_SDL=%d\n",__func__,__LINE__, is_opened_by_SDL);
+    return 0;
+}
+
+
+static long se4750_mipi_misc_ioctl(struct file* pFile, unsigned int uiCmd, unsigned long ulArg)
+{
+    struct i2c_client*          pClient;
+    struct i2c_rdwr_ioctl_data  I2CData;
+    struct i2c_msg              I2CMsg;
+    u8 __user*                  pData;
+    long                        lRetVal;
+
+    //pr_err("yanhao open %s:%d \n",__func__,__LINE__);
+
+    if ((uiCmd != I2C_RDWR) || !ulArg )
+    {
+        return(-EINVAL);
+    }
+    pClient =dev_get_drvdata(se4750_mipi_misc_device.this_device);
+    //pr_err("yanhao open %s:%d client.addr = 0x%x \n",__func__,__LINE__,pClient->addr);
+
+    // Copy data structure argument from user-space
+    if ( copy_from_user(&I2CData, (struct i2c_rdwr_ioctl_data __user*) ulArg, sizeof(I2CData)) )
+    {
+        return(-EFAULT);
+    }
+
+    // Only allow one message at a time
+    if ( I2CData.nmsgs != 1 )
+    {
+        return(-EINVAL);
+    }
+
+    // Copy the message structure from user-space
+    if ( copy_from_user(&I2CMsg, I2CData.msgs, sizeof(struct i2c_msg)) )
+    {
+        return(-EFAULT);
+    }
+
+    lRetVal = 0;
+    // Only allow transfers to the SE4750, limit the size of the message and don't allow received length changes
+    if ( (I2CMsg.addr != SE4750_I2C_ADDR) || (I2CMsg.len > 256) || (I2CMsg.flags & I2C_M_RECV_LEN) )
+    {
+        return(-EINVAL);
+    }
+
+    // Map the data buffer from user-space
+    pData = (u8 __user*) I2CMsg.buf;
+    I2CMsg.buf = memdup_user(pData, I2CMsg.len);
+    if ( IS_ERR(I2CMsg.buf) )
+    {
+        return(PTR_ERR(I2CMsg.buf));
+    }
+    if (!(I2CMsg.flags & I2C_M_RD))
+    {
+        print_hex_dump(KERN_ERR, "sdl_control_ioctl: w:", DUMP_PREFIX_NONE, 16, 1, I2CMsg.buf, I2CMsg.len, true);
+#ifdef MIMIC_ENGINE_RESPONSE
+        if (I2CMsg.buf[0] == 0x77 || I2CMsg.buf[0] == 0x58)
+        {
+            mimic_cmd_response = 1;
+            last_cmd_op_code = I2CMsg.buf[0];
+            kfree(I2CMsg.buf);
+            return I2CMsg.len;
+        }
+#endif
+    }
+    else
+    {
+#ifdef MIMIC_ENGINE_RESPONSE
+        if (mimic_cmd_response)
+        {
+            mimic_cmd_response = 0;
+            I2CMsg.buf[0] = last_cmd_op_code;
+            I2CMsg.buf[1] = 0x80;
+            I2CMsg.len = 2;
+            if ( copy_to_user(pData, I2CMsg.buf, I2CMsg.len) )
+            {
+                lRetVal = -EFAULT;
+            }
+            kfree(I2CMsg.buf);
+            return I2CMsg.len;
+        }
+#endif
+    }
+    // Perform the I2C transfer
+    lRetVal = i2c_transfer(pClient->adapter, &I2CMsg, 1);
+    if ( (lRetVal >= 0) && (I2CMsg.flags & I2C_M_RD) )
+    {
+        print_hex_dump(KERN_ERR, "sdl_control_ioctl: r:", DUMP_PREFIX_NONE, 16, 1, I2CMsg.buf, I2CMsg.len, true);
+        // Successful read, copy data to user-space
+        if ( copy_to_user(pData, I2CMsg.buf, I2CMsg.len) )
+        {
+            lRetVal = -EFAULT;
+        }
+    }
+    kfree(I2CMsg.buf);
+    return lRetVal;
+}
+
+static int se4750_mipi_misc_release(struct inode* pINode, struct file* pFile){
+#if 0
+    int rc = 0;
+
+    if (g_s_ctrl)
+    {
+        rc = cam_sensor_power_down(g_s_ctrl);
+        if (rc < 0) {
+            CAM_ERR(CAM_SENSOR, "power up failed");
+            //goto free_power_settings;
+        }
+    }
+#endif
+    //is_opened_by_SDL = 0;
+    pr_err("SDL open %s:%d is_opened_by_SDL=%d\n",__func__,__LINE__, is_opened_by_SDL);
+
+    return 0;
+}
+
+
+struct file_operations se4750_mipi_misc_fops ={
+    .owner          = THIS_MODULE,
+    .unlocked_ioctl = se4750_mipi_misc_ioctl,
+    .open           = se4750_mipi_misc_open,
+    .release        = se4750_mipi_misc_release,
+};
+
+
+unsigned char cmdbuf[4] = {0x70,0x00,0x00,0x90};
+char respbuf[24] = {0};
+/* MODIFIED-END by yixiang.wu,BUG-10277816*/
+
 int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
@@ -692,6 +1165,35 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 		return -EINVAL;
 	}
 
+	/* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+	if(slave_info->sensor_id == 0x80){
+		//match id
+		memset(respbuf,0,24*sizeof(char));
+		rc = se4750_mipi_i2c_txdata(s_ctrl->io_master_info.client,cmdbuf,4);
+		msleep(10);
+		rc = se4750_mipi_i2c_rxdata(s_ctrl->io_master_info.client,respbuf,24);
+		if((respbuf[0] == 0x70 && respbuf[1] == 0x80 ) && (respbuf[8] == 0x32 && respbuf[9] == 0x30)){
+			CAM_ERR(CAM_SENSOR,"in %s : se4750 match id success !",__func__);
+			chipid = 0x4720;
+			if(!is_zebra_misc_device_exist){
+				misc_register(&se4750_mipi_misc_device);
+				g_s_ctrl = s_ctrl;
+				dev_set_drvdata(se4750_mipi_misc_device.this_device, s_ctrl->io_master_info.client);
+				is_zebra_misc_device_exist =true;
+			}
+			return rc;
+        }else{
+			CAM_ERR(CAM_SENSOR,"in %s : se4720 match id failed,respbuf[0] = 0x%x,[1] = 0x%x,[8] = 0x%x,[9] = 0x%x !",__func__,
+						respbuf[0],respbuf[1],respbuf[8],respbuf[9]);
+			chipid = 0x0;
+			return -ENODEV;
+		}
+		CAM_ERR(CAM_SENSOR, "yanhao read id: 0x%x expected id 0x%x:",
+		chipid, slave_info->sensor_id);
+		return rc;
+	}
+	/* MODIFIED-END by yixiang.wu,BUG-10277816*/
+
 	rc = camera_io_dev_read(
 		&(s_ctrl->io_master_info),
 		slave_info->sensor_id_reg_addr,
@@ -699,7 +1201,7 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 		s_ctrl->sensor_probe_addr_type,
 		s_ctrl->sensor_probe_data_type);
 
-	CAM_DBG(CAM_SENSOR, "read id: 0x%x expected id 0x%x:",
+	CAM_WARN(CAM_SENSOR, "yanhao read id: 0x%x expected id 0x%x:", // MODIFIED by yixiang.wu, 2021-01-05,BUG-10277816
 		chipid, slave_info->sensor_id);
 
 	if (cam_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
@@ -730,6 +1232,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 	}
 
+	CAM_ERR(CAM_SENSOR, "wuyq:cmd->op_code 0x%x",cmd->op_code); // MODIFIED by yixiang.wu, 2021-01-05,BUG-10277816
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	switch (cmd->op_code) {
 	case CAM_SENSOR_PROBE_CMD: {
@@ -857,11 +1360,15 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 			goto release_mutex;
 		}
-
-		rc = cam_sensor_power_up(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
-			goto release_mutex;
+		/* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+		if (!is_opened_by_SDL)
+		{
+			rc = cam_sensor_power_up(s_ctrl);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
+				goto release_mutex;
+			}
+			/* MODIFIED-END by yixiang.wu,BUG-10277816*/
 		}
 
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
@@ -891,6 +1398,13 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 
+		/* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+		if (is_opened_by_SDL)
+		{
+			is_opened_by_SDL = 0; // se4750_mipi_misc_release is called before CAM_STOP_DEV is called, so clear is_opened_by_SDL flag here.
+			CAM_INFO(CAM_SENSOR,"Set is_opened_by_SDL = %d", is_opened_by_SDL);
+		}
+		/* MODIFIED-END by yixiang.wu,BUG-10277816*/
 		rc = cam_sensor_power_down(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
@@ -947,7 +1461,10 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 
-		if (s_ctrl->i2c_data.streamon_settings.is_settings_valid &&
+		 /* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+		 if(s_ctrl->sensordata->slave_info.sensor_id != 0x80){
+			if (s_ctrl->i2c_data.streamon_settings.is_settings_valid &&
+			/* MODIFIED-END by yixiang.wu,BUG-10277816*/
 			(s_ctrl->i2c_data.streamon_settings.request_id == 0)) {
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON);
@@ -956,7 +1473,22 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 					"cannot apply streamon settings");
 				goto release_mutex;
 			}
-		}
+			/* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+			}
+		 }else{
+				//yanhao stream on
+				#ifndef MIMIC_ENGINE_RESPONSE
+			    if (is_opened_by_SDL) //paul don't send commands if it's opened by SDL
+			    {
+					//msleep(100);
+					CAM_INFO(CAM_SENSOR, "CAM_START_DEV with is_opened_by_SDL = %d", is_opened_by_SDL);
+			    }
+				else
+				#endif
+					rc = streamOn_cmds(s_ctrl->io_master_info.client);
+		 }
+		 /* MODIFIED-END by yixiang.wu,BUG-10277816*/
+
 		s_ctrl->sensor_state = CAM_SENSOR_START;
 		CAM_INFO(CAM_SENSOR,
 			"CAM_START_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
@@ -972,7 +1504,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			s_ctrl->sensor_state);
 			goto release_mutex;
 		}
-
+		 if(s_ctrl->sensordata->slave_info.sensor_id != 0x80){ // MODIFIED by yixiang.wu, 2021-01-05,BUG-10277816
 		if (s_ctrl->i2c_data.streamoff_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.streamoff_settings.request_id == 0)) {
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
@@ -982,6 +1514,21 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				"cannot apply streamoff settings");
 			}
 		}
+		/* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+		}else{
+			#if 0 //// To sync with ISP/VFE timing, we need to send ACQ_off command here. Cannot send it in SDL via /dev/sdl_control.
+			//#ifndef MIMIC_ENGINE_RESPONSE
+			if (is_opened_by_SDL) //paul don't send commands if it's opened by SDL
+			{
+				//msleep(100);
+				CAM_INFO(CAM_SENSOR, "CAM_START_DEV with is_opened_by_SDL = %d", is_opened_by_SDL);
+			}
+			else
+			#endif
+			//yanhao stream off
+				rc = streamOff_cmds(s_ctrl->io_master_info.client);
+		}
+		/* MODIFIED-END by yixiang.wu,BUG-10277816*/
 
 		cam_sensor_release_per_frame_resource(s_ctrl);
 		s_ctrl->last_flush_req = 0;
@@ -998,6 +1545,14 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_ERR(CAM_SENSOR, "Failed i2c pkt parse: %d", rc);
 			goto release_mutex;
 		}
+
+		 /* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+		 if(s_ctrl->sensordata->slave_info.sensor_id == 0x80){
+			rc = 0;
+			break;
+		 }
+		 /* MODIFIED-END by yixiang.wu,BUG-10277816*/
+
 		if (s_ctrl->i2c_data.init_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.init_settings.request_id == 0)) {
 
@@ -1389,6 +1944,11 @@ int32_t cam_sensor_apply_request(struct cam_req_mgr_apply_request *apply)
 	}
 	CAM_DBG(CAM_REQ, " Sensor update req id: %lld", apply->request_id);
 	trace_cam_apply_req("Sensor", apply->request_id);
+    /* MODIFIED-BEGIN by yixiang.wu, 2021-01-05,BUG-10277816*/
+    if (s_ctrl->sensordata->slave_info.sensor_id == 0x80){
+        return 0;
+    }
+    /* MODIFIED-END by yixiang.wu,BUG-10277816*/
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	rc = cam_sensor_apply_settings(s_ctrl, apply->request_id,
 		CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE);
