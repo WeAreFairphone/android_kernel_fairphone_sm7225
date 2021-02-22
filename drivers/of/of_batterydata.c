@@ -371,6 +371,16 @@ struct device_node *of_batterydata_get_best_profile(
 
 	if (best_node == NULL) {
 		pr_err("No battery data found\n");
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		for_each_child_of_node(batterydata_container_node, node)
+		{
+			if(of_property_read_bool(node,"qcom,default-battery-type"))
+			{
+				best_node = node;
+				break;
+			}
+		}
+#endif
 		return best_node;
 	}
 
