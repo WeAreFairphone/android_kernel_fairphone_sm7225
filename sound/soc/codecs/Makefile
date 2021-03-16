@@ -517,4 +517,5 @@ obj-$(CONFIG_SND_SOC_SIMPLE_AMPLIFIER)	+= snd-soc-simple-amplifier.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
 
 #$(CONFIG_SND_SMARTPA_AW881XX)
-obj-$(CONFIG_SND_SMARTPA_AW881XX) += aw881xx/aw881xx.o aw881xx/aw881xx_monitor.o aw881xx/aw881xx_cali.o
+#obj-$(CONFIG_SND_SMARTPA_AW881XX) += aw881xx/aw881xx.o aw881xx/aw881xx_monitor.o aw881xx/aw881xx_cali.o
+obj-$(CONFIG_SND_SMARTPA_AW882XX) += aw882xx/aw882xx.o aw882xx/awinic_monitor.o aw882xx/awinic_cali.o aw882xx/awinic_dsp.o
