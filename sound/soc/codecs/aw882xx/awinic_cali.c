@@ -34,7 +34,7 @@ static DEFINE_MUTEX(g_aw_dsp_msg_lock);
 
 #ifdef AW_CALI_STORE_EXAMPLE
 /*write cali to persist file example*/
-#define AWINIC_CALI_FILE  "/oempersist/audio/aw_cali.bin"
+#define AWINIC_CALI_FILE  "/mnt/vendor/persist/factory/audio/aw_cali.bin"
 #define AW_INT_DEC_DIGIT 10
 static int aw882xx_write_cali_re_to_file(int32_t cali_re, int channel)
 {
