@@ -497,7 +497,7 @@ static struct dev_config mi2s_tx_cfg[] = {
 	[SEC_MI2S]  = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[TERT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 	[QUAT_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
-	[QUIN_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+	[QUIN_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 	[SEN_MI2S] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 };
 
@@ -6486,7 +6486,7 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm_cdc_dma_be_ops,
 	},
-/*#if defined(CONFIG_SND_SMARTPA_AW882XX)
+#if defined(CONFIG_SND_SMARTPA_AW882XX)
 	{
 		.name = "Quinary MI2S RX_Hostless",
 		.stream_name = "Quinary MI2S_RX Hostless Playback",
@@ -6517,7 +6517,7 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-#endif*/
+#endif
 };
 
 static struct snd_soc_dai_link msm_common_be_dai_links[] = {
