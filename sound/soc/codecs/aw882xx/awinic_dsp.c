@@ -270,6 +270,7 @@ static int aw_mtk_send_module_enable(void *buf, uint8_t type)
 	case AW_RX_MODULE:
 		ret = aw_mtk_write_data_to_dsp(AFE_PARAM_ID_AWDSP_RX_SET_ENABLE,
 					buf, sizeof(uint32_t), 0);
+		break;
 	case AW_TX_MODULE:
 		ret = aw_mtk_write_data_to_dsp(AFE_PARAM_ID_AWDSP_TX_SET_ENABLE,
 					buf, sizeof(uint32_t), 0);
@@ -290,6 +291,7 @@ static int aw_mtk_get_module_enable(void *buf, uint8_t type)
 	case AW_RX_MODULE:
 		ret = aw_mtk_read_data_from_dsp(INDEX_PARAMS_ID_RX_ENBALE,
 					buf, sizeof(uint32_t), 0);
+		break;
 	case AW_TX_MODULE:
 		ret = aw_mtk_read_data_from_dsp(INDEX_PARAMS_ID_TX_ENABLE,
 					buf, sizeof(uint32_t), 0);
@@ -306,15 +308,15 @@ static int aw_mtk_get_module_enable(void *buf, uint8_t type)
 /******************qcom dsp communication function start**********************/
 static int aw_check_dsp_ready(void)
 {
-	int ret;
+	int topo_id;
 
-	ret = afe_get_topology(AFE_PORT_ID_AWDSP_RX);
-	pr_debug("%s: topo_id 0x%x\n", __func__, ret);
+	topo_id = afe_get_topology(AFE_PORT_ID_AWDSP_RX);
+	pr_debug("%s: topo_id 0x%x\n", __func__, topo_id);
 
-	if (ret <= 0)
-		return false;
-	else
+	if (topo_id == AW_RX_TOPO_ID)
 		return true;
+	else
+		return false;
 }
 
 static int aw_qcom_write_data_to_dsp(int index, void *data, int data_size, int channel)
@@ -337,7 +339,7 @@ static int aw_qcom_write_data_to_dsp(int index, void *data, int data_size, int c
 		} else {
 			try++;
 			msleep(AW_DSP_SLEEP_TIME);
-			pr_debug("%s: afe not ready try again\n", __func__);
+			pr_err("%s: afe not ready try again\n", __func__);
 		}
 	}
 
