@@ -158,7 +158,13 @@ void himax_get_arraydata_edge(int *RAW)
 {
 	int temp, i, j;
 	int len = ic_data->HX_RX_NUM * ic_data->HX_TX_NUM;
-	int ArrayData[len];
+	int *ArrayData;
+ 
+	ArrayData = kcalloc(len, sizeof(int), GFP_KERNEL);
+	if (ArrayData == NULL) {
+		E("%s: allocate ArrayData failed\n", __func__);
+		return;
+	}
 
 	for (i = 0; i < len; i++)
 		ArrayData[i] = RAW[i];
