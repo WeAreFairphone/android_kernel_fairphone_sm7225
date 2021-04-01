@@ -2802,18 +2802,16 @@ static void himax_fb_register(struct work_struct *work)
 	ts->fb_notif.notifier_call = fb_notifier_callback;
 	ret = fb_register_client(&ts->fb_notif);
 #elif defined(HX_CONFIG_DRM)
-#if defined(__HIMAX_MOD__)
-	hx_msm_drm_register_client =
-		(void *)kallsyms_lookup_name("msm_drm_register_client");
-	if (hx_msm_drm_register_client != NULL) {
-		ts->fb_notif.notifier_call = drm_notifier_callback;
-		ret = hx_msm_drm_register_client(&ts->fb_notif);
-	}	else
-		E("hx_msm_drm_register_client is NULL\n");
-#else
 	ts->fb_notif.notifier_call = drm_notifier_callback;
-	ret = msm_drm_register_client(&ts->fb_notif);
-#endif
+	if (active_panel) {
+		ret = drm_panel_notifier_register(active_panel,
+			&ts->fb_notif);
+		if (ret)
+			E("Failed to register fb notifier client");
+	}
+	else {
+		E("active_panel error\n");
+	}
 #endif
 	if (ret)
 		E("Unable to register fb_notifier: %d\n", ret);
@@ -2869,6 +2867,8 @@ int himax_chip_common_init(void)
 		E("prepare kp_file_open_name failed!\n");
 		goto err_xfer_buff_fail;
 	}
+
+
 
 #if defined(__EMBEDDED_FW__)
 	g_embedded_fw.size = (size_t)_binary___Himax_firmware_bin_end -
@@ -3072,7 +3072,7 @@ found_hx_chip:
 		err = -ENOMEM;
 		goto err_get_intr_bit_failed;
 	}
-
+	I("register fb  \n");
 	INIT_DELAYED_WORK(&ts->work_att, himax_fb_register);
 	queue_delayed_work(ts->himax_att_wq, &ts->work_att,
 			msecs_to_jiffies(15000));
@@ -3155,6 +3155,7 @@ err_xfer_buff_fail:
 void himax_chip_common_deinit(void)
 {
 	struct himax_ts_data *ts = private_ts;
+	int ret = 0;
 
 	himax_ts_unregister_interrupt();
 
@@ -3187,8 +3188,12 @@ void himax_chip_common_deinit(void)
 	} else
 		E("hx_msm_drm_unregister_client is NULL\n");
 #else
-	if (msm_drm_unregister_client(&ts->fb_notif))
-		E("Error occurred while unregistering drm_notifier.\n");
+    if (active_panel) {
+		ret = drm_panel_notifier_unregister(active_panel,
+				&ts->fb_notif);
+		if (ret < 0)
+            E("Failed to unregister fb notifier client");
+	}
 #endif
 	cancel_delayed_work_sync(&ts->work_att);
 	destroy_workqueue(ts->himax_att_wq);
