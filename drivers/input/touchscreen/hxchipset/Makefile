@@ -4,10 +4,6 @@ ifneq ($(filter y, $(CONFIG_KALLSYMS_ALL)),)
 	ccflags-y += -D__KERNEL_KALLSYMS_ALL_ENABLED__
 endif
 
-ifneq ($(filter y, $(CONFIG_FB)),)
-	ccflags-y += -DHX_CONFIG_FB
-endif
-
 ifneq ($(filter y, $(CONFIG_DRM)),)
 	ccflags-y += -DHX_CONFIG_DRM
 endif

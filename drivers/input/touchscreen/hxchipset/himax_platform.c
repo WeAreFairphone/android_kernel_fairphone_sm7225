@@ -19,6 +19,61 @@
 int i2c_error_count;
 u8 *gp_rw_buf;
 
+struct drm_panel *active_panel;
+
+int check_dt(struct device_node *np)
+{
+	int i;
+	int count;
+	struct device_node *node;
+	struct drm_panel *panel;
+
+	count = of_count_phandle_with_args(np, "panel", NULL);
+	if (count <= 0)
+		return 0;
+
+	for (i = 0; i < count; i++) {
+		node = of_parse_phandle(np, "panel", i);
+		panel = of_drm_find_panel(node);
+		of_node_put(node);
+		if (!IS_ERR(panel)) {
+			active_panel = panel;
+			return 0;
+		}
+	}
+
+	return -ENODEV;
+}
+
+int check_default_tp(struct device_node *dt, const char *prop)
+{
+	const char *active_tp;
+	const char *compatible;
+	char *start;
+	int ret;
+
+	ret = of_property_read_string(dt->parent, prop, &active_tp);
+	if (ret) {
+		pr_err(" %s:fail to read %s %d\n", __func__, prop, ret);
+		return -ENODEV;
+	}
+
+	ret = of_property_read_string(dt, "compatible", &compatible);
+	if (ret < 0) {
+		pr_err(" %s:fail to read %s %d\n", __func__, "compatible", ret);
+		return -ENODEV;
+	}
+
+	start = strnstr(active_tp, compatible, strlen(active_tp));
+	if (start == NULL) {
+		pr_err(" %s:no match compatible, %s, %s\n",
+			__func__, compatible, active_tp);
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+
 int himax_dev_set(struct himax_ts_data *ts)
 {
 	int ret = 0;
@@ -911,45 +966,50 @@ int fb_notifier_callback(struct notifier_block *self,
 }
 #elif defined(HX_CONFIG_DRM)
 int drm_notifier_callback(struct notifier_block *self,
-		unsigned long event, void *data)
+        unsigned long event, void *data)
 {
-	struct msm_drm_notifier *evdata = data;
-	int *blank;
-	struct himax_ts_data *ts =
-		container_of(self, struct himax_ts_data, fb_notif);
+    struct drm_panel_notifier *evdata = data;
+    int *blank = NULL;
+    struct himax_ts_data *ts =
+        container_of(self, struct himax_ts_data, fb_notif);
+ 
+    I("in\n");
+ 
+    if (!evdata)
+        return 0;
+ 
+    if (!(event == DRM_PANEL_EARLY_EVENT_BLANK ||
+        event == DRM_PANEL_EVENT_BLANK)) {
+        I("event(%lu) do not need process\n", event);
+        return 0;
+    }
+ 
+    blank = evdata->data;
+    I("FB event:%lu,blank:%d", event, *blank);
+    switch (*blank) {
+    case DRM_PANEL_BLANK_UNBLANK:
+        if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
+            I("resume: event = %lu, not care\n", event);
+        } else if (event == DRM_PANEL_EVENT_BLANK) {
+            himax_common_resume(ts->dev);
+        }
+        break;
+ 
+    case DRM_PANEL_BLANK_POWERDOWN:
+        if (event == DRM_PANEL_EARLY_EVENT_BLANK) {
+            himax_common_suspend(ts->dev);
+        } else if (event == DRM_PANEL_EVENT_BLANK) {
+            I("suspend: event = %lu, not care\n", event);
+        }
+        break;
+ 
+    default:
+        E("FB BLANK(%d) do not need process\n", *blank);
+        break;
+    }
+ 
+    return 0;
 
-	if (!evdata || (evdata->id != 0))
-		return 0;
-
-	D("DRM  %s\n", __func__);
-
-	if (evdata->data
-	&& event == MSM_DRM_EARLY_EVENT_BLANK
-	&& ts
-	&& ts->client) {
-		blank = evdata->data;
-		switch (*blank) {
-		case MSM_DRM_BLANK_POWERDOWN:
-			if (!ts->initialized)
-				return -ECANCELED;
-			himax_common_suspend(&ts->client->dev);
-			break;
-		}
-	}
-
-	if (evdata->data
-	&& event == MSM_DRM_EVENT_BLANK
-	&& ts
-	&& ts->client) {
-		blank = evdata->data;
-		switch (*blank) {
-		case MSM_DRM_BLANK_UNBLANK:
-			himax_common_resume(&ts->client->dev);
-			break;
-		}
-	}
-
-	return 0;
 }
 #endif
 
@@ -958,6 +1018,7 @@ int himax_chip_common_probe(struct i2c_client *client,
 {
 	int ret = 0;
 	struct himax_ts_data *ts;
+	struct device_node *dp = client->dev.of_node;
 
 	I("%s:Enter\n", __func__);
 
@@ -972,6 +1033,15 @@ int himax_chip_common_probe(struct i2c_client *client,
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		E("%s: i2c check functionality error\n", __func__);
 		return -ENODEV;
+	}
+
+	if (check_dt(dp)) {
+		if (!check_default_tp(dp, "qcom,i2c-touch-active"))
+			ret = -EPROBE_DEFER;
+		else
+			ret = -ENODEV;
+        	E("check_dt failed, error=%d", ret);
+		return ret;
 	}
 
 	ts = kzalloc(sizeof(struct himax_ts_data), GFP_KERNEL);
