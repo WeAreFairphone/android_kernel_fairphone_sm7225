@@ -11,6 +11,7 @@
 #define AW_DSP_SLEEP_TIME (10)
 
 #define AFE_PORT_ID_AWDSP_RX (0x1016)     /*plt fp4 AFE_PORT_ID_QUINARY_MI2S_RX*/
+#define AW_RX_TOPO_ID					(0x1000FF01)	/*RX topology id*/
 
 #define AW_COPP_MODULE_ID (0X10013D02)			/*SKT module id*/
 #define AW_COPP_MODULE_PARAMS_ID_EN (0X10013D14)	/*SKT enable param id*/
