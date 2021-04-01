@@ -39,7 +39,6 @@
 #include <linux/proc_fs.h>
 #include "himax_platform.h"
 #include <linux/kallsyms.h>
-#include <drm/drm_panel.h>
 
 #if defined(CONFIG_OF)
 	#include <linux/of_gpio.h>
@@ -573,7 +572,6 @@ extern struct himax_core_fp g_core_fp;
 extern struct himax_ts_data *private_ts;
 extern struct himax_ic_data *ic_data;
 extern struct device *g_device;
-extern struct drm_panel *active_panel;
 
 #if defined(CONFIG_TOUCHSCREEN_HIMAX_DEBUG)
 	int himax_debug_init(void);
