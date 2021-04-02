@@ -2427,11 +2427,11 @@ static void afe_send_cal_spv4_tx(int port_id)
 	if (this_afe.vi_tx_port == port_id) {
 		memcpy(&afe_spk_config.v4_ch_map_cfg, &this_afe.v4_ch_map_cfg,
 			sizeof(struct afe_sp_v4_param_vi_channel_map_cfg));
-		if (afe_spk_prot_prepare(port_id, this_afe.vi_rx_port,
+		/*if (afe_spk_prot_prepare(port_id, this_afe.vi_rx_port,
 			AFE_PARAM_ID_SP_V4_VI_CHANNEL_MAP_CFG, &afe_spk_config,
 			sizeof(struct afe_sp_v4_param_vi_channel_map_cfg)))
 			pr_info("%s: SPKR_CALIB_CHANNEL_MAP_CFG failed\n",
-				 __func__);
+				 __func__);*/
 	}
 
 	if (this_afe.cal_data[AFE_FB_SPKR_PROT_CAL] == NULL ||
@@ -9840,7 +9840,7 @@ int afe_spk_prot_feed_back_cfg(int src_port, int dst_port,
 	}
 	pr_debug("%s: src_port 0x%x  dst_port 0x%x l_ch %d r_ch %d\n",
 		 __func__, src_port, dst_port, l_ch, r_ch);
-	if (q6core_get_avcs_api_version_per_service(
+	/*if (q6core_get_avcs_api_version_per_service(
 		APRV2_IDS_SERVICE_ID_ADSP_AFE_V) >= AFE_API_VERSION_V9) {
 		if (l_ch) {
 			this_afe.v4_ch_map_cfg.chan_info[index++] = 1;
@@ -9852,7 +9852,7 @@ int afe_spk_prot_feed_back_cfg(int src_port, int dst_port,
 		}
 		this_afe.v4_ch_map_cfg.num_channels = index;
 		this_afe.num_spkrs = index / 2;
-	}
+	}*/
 
 	index = 0;
 	memset(&prot_config, 0, sizeof(prot_config));
