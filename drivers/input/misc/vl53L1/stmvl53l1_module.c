@@ -394,21 +394,12 @@ static int reset_release(struct stmvl53l1_data *data)
 {
 	int rc;
 
-	vl53l1_dbgmsg("turn on vdd\n");
-	rc = stmvl53l1_module_func_tbl.power_up(data->client_object);
-	if (rc) {
-		vl53l1_errmsg("%d,error rc %d\n", __LINE__, rc);
-		return rc;
-	}
-
 	if (!data->reset_state)
 		return 0;
 
 	rc = stmvl53l1_module_func_tbl.reset_release(data->client_object);
-	if (rc) {
+	if (rc)
 		vl53l1_errmsg("reset release fail rc=%d\n", rc);
-		stmvl53l1_module_func_tbl.power_down(data->client_object);
-	}
 	else
 		data->reset_state = 0;
 
@@ -418,9 +409,6 @@ static int reset_release(struct stmvl53l1_data *data)
 static int reset_hold(struct stmvl53l1_data *data)
 {
 	int rc;
-
-	vl53l1_dbgmsg("turn off vdd data reset_state=%d\n", data->reset_state);
-	rc = stmvl53l1_module_func_tbl.power_down(data->client_object);
 
 	if (data->reset_state)
 		return 0;
@@ -3991,12 +3979,11 @@ int stmvl53l1_setup(struct stmvl53l1_data *data)
 	data->last_error = VL53L1_ERROR_NONE;
 	data->is_device_remove = false;
 
-	/* vdd will be controlled in reset_release() */
-	//rc = stmvl53l1_module_func_tbl.power_up(data->client_object);
-	//if (rc) {
-	//	vl53l1_errmsg("%d,error rc %d\n", __LINE__, rc);
-	//	goto exit_ipp_cleanup;
-	//}
+	rc = stmvl53l1_module_func_tbl.power_up(data->client_object);
+	if (rc) {
+		vl53l1_errmsg("%d,error rc %d\n", __LINE__, rc);
+		goto exit_ipp_cleanup;
+	}
 	rc = reset_release(data);
 	if (rc)
 		goto exit_ipp_cleanup;
