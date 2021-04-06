@@ -377,7 +377,7 @@ static int stmvl53l1_parse_tree(struct device *dev, struct i2c_data *i2c_data)
 		i2c_data->intr_gpio = intr_gpio_nb;
 	} else if (dev->of_node) {
 		/* power : either vdd or pwren_gpio. try reulator first */
-		i2c_data->vdd = regulator_get_optional(dev, "vdd");
+		i2c_data->vdd = devm_regulator_get(dev, "vl53_vdd");		
 		if (IS_ERR(i2c_data->vdd) || i2c_data->vdd == NULL) {
 			i2c_data->vdd = NULL;
 			/* try gpio */
@@ -389,9 +389,9 @@ static int stmvl53l1_parse_tree(struct device *dev, struct i2c_data *i2c_data)
 			"no regulator, nor power gpio => power ctrl disabled");
 			}
 		}
-		//rc = regulator_enable(i2c_data->vdd);
-		//if (rc)
-		//	pr_err("i2c_data->vdd failed to enable\n");
+		rc = regulator_enable(i2c_data->vdd);
+		if (rc)
+			pr_err("i2c_data->vdd failed to enable\n");
 		
 		i2c_data->xsdn_gpio = of_get_named_gpio(dev->of_node, "xsdn-gpio",0);
 		if (i2c_data->xsdn_gpio < 0)
