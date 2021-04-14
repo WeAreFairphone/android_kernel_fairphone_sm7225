@@ -346,8 +346,8 @@ static void smblib_notify_extcon_props(struct smb_charger *chg, int id)
 		val.intval = ((prop_val.intval == 2) ? 1 : 0);
 		extcon_set_property(chg->extcon, id,
 				EXTCON_PROP_USB_TYPEC_POLARITY, val);
-
-#if defined(CONFIG_TCT_PM7250_COMMON)
+//support USB3.0
+#if 0//defined(CONFIG_TCT_PM7250_COMMON)
 		val.intval = false;
 #else
 		val.intval = true;
