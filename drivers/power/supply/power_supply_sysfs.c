@@ -400,6 +400,8 @@ static struct device_attribute power_supply_attrs[] = {
 #else
 	POWER_SUPPLY_ATTR(safety_timer_enabled),
 #endif
+	POWER_SUPPLY_ATTR(connector_temp),
+
 	POWER_SUPPLY_ATTR(charge_done),
 	POWER_SUPPLY_ATTR(flash_active),
 	POWER_SUPPLY_ATTR(flash_trigger),
