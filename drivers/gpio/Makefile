@@ -160,3 +160,4 @@ obj-$(CONFIG_GPIO_ZYNQ)		+= gpio-zynq.o
 obj-$(CONFIG_GPIO_ZX)		+= gpio-zx.o
 obj-$(CONFIG_GPIO_LOONGSON1)	+= gpio-loongson1.o
 obj-$(CONFIG_FP4_BOARD_ID)	+= fp4-board-id.o
+obj-$(CONFIG_GPIO_NPI_DOWN_STATUS)      += gpio-npi-down-status.o
