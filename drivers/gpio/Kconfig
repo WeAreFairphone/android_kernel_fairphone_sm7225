@@ -1393,4 +1393,11 @@ config GPIO_VIPERBOARD
 
 endmenu
 
+config GPIO_NPI_DOWN_STATUS
+         bool "NPI Down status"
+	 def_bool y
+         help
+           Say 'y' here to include debug support for the Qualcomm
+           QPNP gpio status.
+
 endif
