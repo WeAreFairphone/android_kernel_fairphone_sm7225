@@ -2344,7 +2344,7 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 #define JEITA_HARD_COLD_TEMP (0)
 #define JEITA_SOFT_COLD_TEMP (100)
 #define JEITA_SOFT_HOT_TEMP (450)
-#define JEITA_HARD_HOT_TEMP (550)
+#define JEITA_HARD_HOT_TEMP (600)
 
 	rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_TEMP, &pval);
