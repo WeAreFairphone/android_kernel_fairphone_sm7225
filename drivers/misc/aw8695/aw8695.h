@@ -315,6 +315,7 @@ struct aw8695 {
 	unsigned long int microsecond;
 	unsigned int sys_frequency;
 	unsigned int rtp_len;
+	atomic_t is_rtp;
 
 	int reset_gpio;
 	int irq_gpio;
