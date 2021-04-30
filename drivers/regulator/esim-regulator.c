@@ -17,11 +17,11 @@ static ssize_t esim_power_store(struct class *class,
 	int ret = 0;
 
 	if ((!strncmp(buf,"1",1))) {
-	    ret = regulator_set_voltage(regulator_l5e, 1810000, 1810000); 
+	    ret = regulator_enable(regulator_l5e); 
 		   regulator_status = 1;
 		}
 	else {
-	    ret = regulator_set_voltage(regulator_l5e, 0, 0); 
+	    ret = regulator_enable(regulator_l5e); 
 		   regulator_status = 0;
 		}
 
