@@ -16,6 +16,10 @@
 #include "himax_platform.h"
 #include "himax_common.h"
 
+#define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+
 int i2c_error_count;
 u8 *gp_rw_buf;
 
@@ -749,6 +753,53 @@ err_gpio_reset_req:
 
 #endif
 
+int himax_ts_pinctrl_init(struct himax_ts_data *ts)
+{
+	int retval;
+	/* Get pinctrl if target uses pinctrl */
+	ts->ts_pinctrl = devm_pinctrl_get(ts->dev);
+	if (IS_ERR_OR_NULL(ts->ts_pinctrl)) {
+		retval = PTR_ERR(ts->ts_pinctrl);
+		dev_dbg(&ts->client->dev, "Target does not use pinctrl %d\n",
+		retval);
+		goto err_pinctrl_get;
+	}
+
+	ts->pinctrl_state_active = pinctrl_lookup_state(ts->ts_pinctrl,
+						PINCTRL_STATE_ACTIVE);
+	if (IS_ERR_OR_NULL(ts->pinctrl_state_active)) {
+		retval = PTR_ERR(ts->pinctrl_state_active);
+		dev_err(ts->dev, "Can not lookup %s pinstate %d\n",
+		PINCTRL_STATE_ACTIVE, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	ts->pinctrl_state_suspend = pinctrl_lookup_state(ts->ts_pinctrl,
+						PINCTRL_STATE_SUSPEND);
+	if (IS_ERR_OR_NULL(ts->pinctrl_state_suspend)) {
+		retval = PTR_ERR(ts->pinctrl_state_suspend);
+		dev_err(ts->dev, "Can not lookup %s pinstate %d\n",
+		PINCTRL_STATE_SUSPEND, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	ts->pinctrl_state_release = pinctrl_lookup_state(ts->ts_pinctrl,
+						PINCTRL_STATE_RELEASE);
+	if (IS_ERR_OR_NULL(ts->pinctrl_state_release)) {
+		retval = PTR_ERR(ts->pinctrl_state_release);
+		dev_dbg(ts->dev, "Can not lookup %s pinstate %d\n",
+		PINCTRL_STATE_RELEASE, retval);
+	}
+
+	return 0;
+
+err_pinctrl_lookup:
+	devm_pinctrl_put(ts->ts_pinctrl);
+err_pinctrl_get:
+	ts->ts_pinctrl = NULL;
+	return retval;
+}
+
 void himax_gpio_power_deconfig(struct himax_i2c_platform_data *pdata)
 {
 	if (gpio_is_valid(pdata->gpio_irq))
@@ -1056,6 +1107,10 @@ int himax_chip_common_probe(struct i2c_client *client,
 	ts->dev = &client->dev;
 	mutex_init(&ts->rw_lock);
 	private_ts = ts;
+
+	ret = himax_ts_pinctrl_init(ts);
+	if (ret || ts->ts_pinctrl == NULL)
+		E(" Pinctrl init failed\n");
 
 	ts->initialized = false;
 	ret = himax_chip_common_init();
