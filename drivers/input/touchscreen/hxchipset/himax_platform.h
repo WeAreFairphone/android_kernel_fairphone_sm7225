@@ -143,6 +143,7 @@ extern void himax_ts_work(struct himax_ts_data *ts);
 extern enum hrtimer_restart himax_ts_timer_func(struct hrtimer *timer);
 extern int himax_chip_common_init(void);
 extern void himax_chip_common_deinit(void);
+int himax_ts_pinctrl_init(struct himax_ts_data *ts);
 
 #endif
 

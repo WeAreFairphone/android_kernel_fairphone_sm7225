@@ -523,6 +523,11 @@ struct himax_ts_data {
 	struct work_struct guest_info_work;
 #endif
 
+	/* pinctrl data */
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 
 };
 

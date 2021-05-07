@@ -2868,7 +2868,13 @@ int himax_chip_common_init(void)
 		goto err_xfer_buff_fail;
 	}
 
-
+	/* Set pinctrl in active state */
+	if (ts->ts_pinctrl) {
+		ret = pinctrl_select_state(ts->ts_pinctrl,
+		ts->pinctrl_state_active);
+		if (ret < 0)
+			E("Failed to set pin in active state %d", ret);
+	}
 
 #if defined(__EMBEDDED_FW__)
 	g_embedded_fw.size = (size_t)_binary___Himax_firmware_bin_end -
@@ -3139,6 +3145,18 @@ err_alloc_dt_pdata_failed:
 	kfree(hx_touch_data);
 	hx_touch_data = NULL;
 err_alloc_touch_data_failed:
+	if (ts->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(ts->pinctrl_state_release)) {
+			devm_pinctrl_put(ts->ts_pinctrl);
+			ts->ts_pinctrl = NULL;
+		} else {
+			err = pinctrl_select_state(ts->ts_pinctrl,
+					ts->pinctrl_state_release);
+			if (err)
+				E("failed to select relase pinctrl state %d\n",
+					err);
+		}
+	}
 	kfree(ic_data);
 	ic_data = NULL;
 err_dt_ic_data_fail:
@@ -3212,6 +3230,19 @@ void himax_chip_common_deinit(void)
 	if (himax_mcu_cmd_struct_free)
 		himax_mcu_cmd_struct_free();
 
+	if (ts->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(ts->pinctrl_state_release)) {
+			devm_pinctrl_put(ts->ts_pinctrl);
+			ts->ts_pinctrl = NULL;
+		} else {
+			ret = pinctrl_select_state(ts->ts_pinctrl,
+					ts->pinctrl_state_release);
+			if (ret)
+				E("failed to select relase pinctrl state %d\n",
+					ret);
+		}
+	}
+
 	kfree(hx_touch_data);
 	hx_touch_data = NULL;
 	kfree(ic_data);
@@ -3231,6 +3262,8 @@ void himax_chip_common_deinit(void)
 
 int himax_chip_common_suspend(struct himax_ts_data *ts)
 {
+	int ret;
+
 	if (ts->suspended) {
 		I("%s: Already suspended. Skipped.\n", __func__);
 		goto END;
@@ -3285,6 +3318,13 @@ int himax_chip_common_suspend(struct himax_ts_data *ts)
 	atomic_set(&ts->suspend_mode, 1);
 	ts->pre_finger_mask = 0;
 
+	if (ts->ts_pinctrl) {
+		ret = pinctrl_select_state(ts->ts_pinctrl,
+				ts->pinctrl_state_suspend);
+		if (ret < 0)
+			E("Failed to get idle pinctrl state %d\n", ret);
+	}
+
 	if (ts->pdata)
 		if (ts->pdata->powerOff3V3 && ts->pdata->power)
 			ts->pdata->power(0);
@@ -3303,6 +3343,8 @@ int himax_chip_common_resume(struct himax_ts_data *ts)
 #if defined(HX_RESUME_SET_FW)
 	int result = 0;
 #endif
+	int ret;
+
 	I("%s: enter\n", __func__);
 
 	if (ts->suspended == false) {
@@ -3316,7 +3358,14 @@ int himax_chip_common_resume(struct himax_ts_data *ts)
 		/* continuous N times record, not total N times. */
 		g_zero_event_count = 0;
 #endif
-
+	if (ts->ts_pinctrl) {
+		ret = pinctrl_select_state(ts->ts_pinctrl,
+				ts->pinctrl_state_active);
+		if (ret < 0) {
+			E("Cannot get default pinctrl state %d\n", ret);
+			return ret;
+		}
+	}
 	atomic_set(&ts->suspend_mode, 0);
 	ts->diag_cmd = 0;
 
