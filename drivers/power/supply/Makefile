@@ -87,3 +87,4 @@ obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
 obj-$(CONFIG_CHARGER_CROS_USBPD)	+= cros_usbpd-charger.o
 obj-$(CONFIG_ARCH_QCOM)		+= qcom/
 obj-$(CONFIG_BATTERY_BQ27541_HDQ)   += bq27541_fuelgauger_hdq.o
+obj-$(CONFIG_BATTERY_QNOVO_CHARGE_ALGO)   += qns_system_v2.o

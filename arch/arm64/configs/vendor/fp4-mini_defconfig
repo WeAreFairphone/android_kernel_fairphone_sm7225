@@ -732,3 +732,5 @@ CONFIG_FP4_BOARD_ID=y
 CONFIG_GPIO_NPI_DOWN_STATUS=y
 #[Camera]ADD ST TOF
 CONFIG_STMVL53L1=y
+#zxz add for qnovo qns 3rd part charge algorithm service
+CONFIG_BATTERY_QNOVO_CHARGE_ALGO=y
