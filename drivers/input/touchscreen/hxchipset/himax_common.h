@@ -59,7 +59,7 @@
 #define HX_EXCP_RECOVERY
 
 /*#define HX_NEW_EVENT_STACK_FORMAT*/
-/*#define HX_BOOT_UPGRADE*/
+#define HX_BOOT_UPGRADE
 /*#define HX_SMART_WAKEUP*/
 /*#define HX_GESTURE_TRACK*/
 #define HX_RESUME_SEND_CMD	/*Need to enable on TDDI chipset*/
