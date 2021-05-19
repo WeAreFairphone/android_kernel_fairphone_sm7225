@@ -330,6 +330,24 @@ fw_get_filesystem_firmware(struct device *device, struct fw_priv *fw_priv)
 			break;
 		}
 
+#ifdef CONFIG_PXLW_IRIS
+		if ((!strcmp(buf->fw_id, "iris6_ccf1.fw") || !strcmp(buf->fw_id, "iris6_ccf2.fw")) && i == 1) {
+			snprintf(path, PATH_MAX, "%s/%s", "/system/etc", buf->fw_id);
+		}
+
+		if (i == 1) {
+			if (!strcmp(buf->fw_id, "iris6_ccf1b.fw"))
+				snprintf(path, PATH_MAX, "%s/%s", "/persist/display", buf->fw_id);
+
+			if (!strcmp(buf->fw_id, "iris6_ccf2b.fw"))
+				snprintf(path, PATH_MAX, "%s/%s", "/persist/display", buf->fw_id);
+
+			if (!strcmp(buf->fw_id, "iris6_ccf3b.fw"))
+				snprintf(path, PATH_MAX, "%s/%s", "/persist/display", buf->fw_id);
+
+		}
+
+#endif
 		fw_priv->size = 0;
 		rc = kernel_read_file_from_path(path, &fw_priv->data, &size,
 						msize, id);

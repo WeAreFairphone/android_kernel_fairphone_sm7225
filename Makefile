@@ -29,6 +29,11 @@ export LC_COLLATE LC_NUMERIC
 # Avoid interference with shell env settings
 unexport GREP_OPTIONS
 
+IRIS_KERNEL_CONFIG = true
+#ifeq ($(IRIS_KERNEL_CONFIG), true)
+export CONFIG_PXLW_IRIS=y
+#endif
+
 # We are using a recursive build, so we need to do a little thinking
 # to get the ordering right.
 #
