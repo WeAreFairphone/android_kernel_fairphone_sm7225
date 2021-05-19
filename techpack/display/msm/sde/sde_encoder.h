@@ -399,4 +399,13 @@ static inline struct sde_kms *sde_encoder_get_kms(struct drm_encoder *drm_enc)
 	return to_sde_kms(priv->kms);
 }
 
+#if defined(CONFIG_PXLW_IRIS)
+/**
+ * sde_encoder_is_disabled - encoder is disabled
+ * @drm_enc:    Pointer to drm encoder structure
+ * @Return:     bool.
+ */
+bool sde_encoder_is_disabled(struct drm_encoder *drm_enc);
+#endif
+
 #endif /* __SDE_ENCODER_H__ */

@@ -101,6 +101,21 @@ msm_drm-$(CONFIG_DRM_MSM_DSI) += dsi/dsi_phy.o \
 	dsi/dsi_clk_manager.o \
 	dsi/dsi_display_test.o \
 
+ifeq ($(CONFIG_PXLW_IRIS),y)
+msm_drm-$(CONFIG_PXLW_IRIS) += dsi/iris/dsi_iris6_ioctl.o \
+				dsi/iris/dsi_iris6_lightup.o \
+				dsi/iris/dsi_iris6_lightup_ocp.o \
+				dsi/iris/dsi_iris6_lp.o \
+				dsi/iris/dsi_iris6_lut.o \
+				dsi/iris/dsi_iris6_pq.o \
+				dsi/iris/dsi_iris6_cmds.o \
+				dsi/iris/dsi_iris6_i3c.o \
+				dsi/iris/dsi_iris6_gpio.o \
+				dsi/iris/dsi_iris6_loopback.o \
+				dsi/iris/dsi_iris6_dbg.o
+ccflags-y += -DCONFIG_PXLW_IRIS
+endif
+
 msm_drm-$(CONFIG_DSI_PARSER) += dsi/dsi_parser.o \
 
 msm_drm-$(CONFIG_DRM_MSM) += \

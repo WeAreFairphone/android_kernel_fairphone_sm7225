@@ -274,6 +274,13 @@ struct dsi_display {
 	u32 clk_gating_config;
 	bool queue_cmd_waits;
 	struct workqueue_struct *dma_cmd_workq;
+
+#if defined(CONFIG_PXLW_IRIS)
+	u32 off;
+	u32 cnt;
+	u8 cmd_data_type;
+#endif
+
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);
