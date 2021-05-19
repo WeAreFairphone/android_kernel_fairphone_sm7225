@@ -1211,14 +1211,22 @@ int dsi_message_validate_tx_mode(struct dsi_ctrl *dsi_ctrl,
 			DSI_CTRL_ERR(dsi_ctrl, " Cannot transfer command,ops not defined\n");
 			return -ENOTSUPP;
 		}
+#if defined(CONFIG_PXLW_IRIS)
+		if ((cmd_len + 4) > SZ_256K) {
+#else
 		if ((cmd_len + 4) > SZ_4K) {
+#endif
 			DSI_CTRL_ERR(dsi_ctrl, "Cannot transfer,size is greater than 4096\n");
 			return -ENOTSUPP;
 		}
 	}
 
 	if (*flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+#if defined(CONFIG_PXLW_IRIS)
+		if ((dsi_ctrl->cmd_len + cmd_len + 4) > SZ_256K) {
+#else
 		if ((dsi_ctrl->cmd_len + cmd_len + 4) > SZ_4K) {
+#endif
 			DSI_CTRL_ERR(dsi_ctrl, "Cannot transfer,size is greater than 4096\n");
 			return -ENOTSUPP;
 		}
@@ -1254,6 +1262,12 @@ static void dsi_kickoff_msg_tx(struct dsi_ctrl *dsi_ctrl,
 	u32 hw_flags = 0;
 	u32 line_no = 0x1;
 	struct dsi_ctrl_hw_ops dsi_hw_ops = dsi_ctrl->hw.ops;
+
+#if defined(CONFIG_PXLW_IRIS)
+	if (dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE)
+		line_no = 10;
+	pr_debug("line_no: %d\n", line_no);
+#endif
 
 	SDE_EVT32(dsi_ctrl->cell_index, SDE_EVTLOG_FUNC_ENTRY, flags,
 		msg->flags);
@@ -1370,6 +1384,45 @@ static void dsi_ctrl_validate_msg_flags(struct dsi_ctrl *dsi_ctrl,
 		*flags &= ~DSI_CTRL_CMD_ASYNC_WAIT;
 }
 
+#if defined(CONFIG_PXLW_IRIS)
+bool dsi_cmd_log_enable = 1;
+static void print_cmd_desc(struct dsi_ctrl *dsi_ctrl,
+				const struct mipi_dsi_msg *msg)
+{
+	char buf[1024];
+	int len = 0;
+	size_t i;
+	char *tx_buf = (char *)msg->tx_buf;
+
+	/* Packet Info */
+	len += snprintf(buf, sizeof(buf) - len, "%02x ", msg->type);
+	/* Last bit */
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ",
+						(msg->flags & MIPI_DSI_MSG_LASTCOMMAND) ? 1 : 0);
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ",
+						msg->channel);
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ",
+						(u32)msg->flags);
+	/* Delay */
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x ",
+						msg->wait_ms);
+	len += snprintf(buf + len, sizeof(buf) - len, "%02x %02x ",
+						((u32)msg->tx_len >> 8) & 0xFF, (u32)msg->tx_len & 0xFF);
+
+	/* Packet Payload */
+	for (i = 0 ; i < msg->tx_len ; i++) {
+		len += snprintf(buf + len, sizeof(buf) - len, "%02x ", tx_buf[i]);
+		/* Break to prevent show too long command */
+		if (i > 250)
+			break;
+	}
+
+	pr_debug("IRIS print msg begin =====================\n");
+	pr_debug("%s\n", buf);
+	pr_debug("IRIS print msg end =======================\n");
+}
+#endif
+
 static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 *flags)
@@ -1382,6 +1435,11 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	u8 *buffer = NULL;
 	u32 cnt = 0;
 	u8 *cmdbuf;
+
+#if defined(CONFIG_PXLW_IRIS)
+	if (dsi_cmd_log_enable)
+		print_cmd_desc(dsi_ctrl, msg);
+#endif
 
 	/* Select the tx mode to transfer the command */
 	dsi_message_setup_tx_mode(dsi_ctrl, msg->tx_len, flags);
@@ -1663,6 +1721,9 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 
 	/* parse the data read from panel */
 	cmd = buff[0];
+#if defined(CONFIG_PXLW_IRIS)
+	cmd &= 0x3f;
+#endif
 	switch (cmd) {
 	case MIPI_DSI_RX_ACKNOWLEDGE_AND_ERROR_REPORT:
 		DSI_CTRL_ERR(dsi_ctrl, "Rx ACK_ERROR 0x%x\n", cmd);

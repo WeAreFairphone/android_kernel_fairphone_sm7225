@@ -22,7 +22,11 @@
 #define SDE_ENCODER_NAME_MAX	16
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
+#if defined(CONFIG_PXLW_IRIS)
+#define KICKOFF_TIMEOUT_MS		1500
+#else
 #define KICKOFF_TIMEOUT_MS		84
+#endif
 #define KICKOFF_TIMEOUT_JIFFIES		msecs_to_jiffies(KICKOFF_TIMEOUT_MS)
 
 #define MAX_TE_PROFILE_COUNT		5
