@@ -173,6 +173,9 @@ static int cam_ois_init_subdev_param(struct cam_ois_ctrl_t *o_ctrl)
 	return rc;
 }
 
+DEVICE_ATTR(ois_gyro_cali_data, 0664, ois_gyro_cali_data_show, ois_gyro_cali_data_store);
+
+
 static int cam_ois_i2c_driver_probe(struct i2c_client *client,
 	 const struct i2c_device_id *id)
 {
@@ -319,6 +322,9 @@ static int32_t cam_ois_platform_driver_probe(
 	if (rc)
 		goto free_soc;
 
+	rc = device_create_file(&pdev->dev, &dev_attr_ois_gyro_cali_data);
+	CAM_ERR(CAM_OIS, "creat ois calibration data sys node rc=%d", rc);
+
 	rc = cam_ois_update_i2c_info(o_ctrl, &soc_private->i2c_info);
 	if (rc) {
 		CAM_ERR(CAM_OIS, "failed: to update i2c info rc %d", rc);
@@ -355,6 +361,10 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 		CAM_ERR(CAM_OIS, "ois device is NULL");
 		return -EINVAL;
 	}
+
+	device_remove_file(&pdev->dev, &dev_attr_ois_gyro_cali_data);
+	CAM_ERR(CAM_OIS, "remove calibration node");
+
 
 	CAM_INFO(CAM_OIS, "platform driver remove invoked");
 	soc_info = &o_ctrl->soc_info;

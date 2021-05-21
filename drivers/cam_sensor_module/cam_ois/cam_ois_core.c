@@ -15,6 +15,20 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+typedef struct REGSETTING{
+	uint16_t reg ;
+	uint16_t val ;
+}REGSETTING ;
+
+static int32_t gyro_offset_X = 0;
+static int32_t gyro_offset_Y = 0;
+
+static int32_t gyro_offset_X_check = -1;
+static int32_t gyro_offset_Y_check = -1;
+
+static int calibration_status = 0;
+
+
 int32_t cam_ois_construct_default_power_setting(
 	struct cam_sensor_power_ctrl_t *power_info)
 {
@@ -287,6 +301,277 @@ static int cam_ois_slaveInfo_pkt_parser(struct cam_ois_ctrl_t *o_ctrl,
 	return rc;
 }
 
+static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
+{
+	uint16_t                           total_bytes = 0;
+	int32_t                            rc = 0;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
+	struct page                       *page = NULL;
+  	uint32_t                           fw_size;
+	uint32_t cmd_adress=0,cmd_data=0;
+	
+	const REGSETTING cml_ois_gyro_calibration[]= {
+		//gyro cali mode
+		{0x9b2c ,0x0002} ,//0[write]enter calibration mode
+		{0x9b28 ,0x2000} ,//1[read]check mode
+		{0x9b2a ,0x0001} ,//2[write]
+		{0x9b28 ,0x2001} ,//3[read]calibration done
+		{0x9fb0 ,0x8001} ,//4[read]gyro offset calibratin result
+		{0x9fb6 ,0x0000} ,//5[read]gyro offset X
+		{0x9fb8 ,0x0000} ,//6[read]gyro offset Y
+		//save mode
+		{0x9b2c ,0x0006} ,//7[write]store mode
+		{0x9b28 ,0x6000} ,//8[read]
+		{0x0220 ,0xc0d4} ,//9[write]code pt off
+		{0x9b2a ,0x0001} ,//10[write]
+		{0x9b28 ,0x6001} ,//11[read]store done
+		{0x0220 ,0x0000} ,//12[write]code pt on
+	};
+
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return -EINVAL;
+	}
+	total_bytes = sizeof(cml_ois_gyro_calibration[0]);
+		
+	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.size = total_bytes;
+	i2c_reg_setting.delay = 0;
+
+	fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *	total_bytes) >> PAGE_SHIFT;
+	page = cma_alloc(dev_get_cma_area((o_ctrl->soc_info.dev)),fw_size, 0, GFP_KERNEL);
+	if (!page) {
+		CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
+		return -ENOMEM;
+	}
+	//[Begin]enter gyro cali mode
+	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *) (page_address(page));
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[0].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[0].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x9b2c -> 0x0002");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "write {0x9b2c ,0x0002} failed %d", rc);
+
+	}
+	else
+	{
+		mdelay(50);
+		cmd_adress = cml_ois_gyro_calibration[5].reg;
+		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+		CAM_ERR(CAM_OIS,"read 0x9fb6 -> 0x%x",cmd_data);
+		
+		mdelay(50);
+		cmd_adress = cml_ois_gyro_calibration[6].reg;
+		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+		CAM_ERR(CAM_OIS,"read 0x9fb8 -> 0x%x",cmd_data);
+		
+		mdelay(50);
+		cmd_adress = cml_ois_gyro_calibration[1].reg;
+		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+		if (rc < 0) 
+		{
+			CAM_ERR(CAM_OIS, "read {0x9b28 ,0x2000} failed: %d",rc);
+		} 
+		else
+		{
+			CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+			if (cmd_data == cml_ois_gyro_calibration[1].val)
+			{
+				i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[2].reg;
+				i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[2].val;
+				i2c_reg_setting.reg_setting[0].delay = 1;
+				i2c_reg_setting.reg_setting[0].data_mask = 0;
+				CAM_ERR(CAM_OIS, "write 0x9b2a -> 0x0001");
+				mdelay(50);
+				rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+				if (rc < 0) {
+					CAM_ERR(CAM_OIS, "write {0x9b2a ,0x0001} failed %d", rc);
+				}
+				else
+				{
+					mdelay(50);
+					cmd_adress = cml_ois_gyro_calibration[3].reg;
+					rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+					if (rc < 0) 
+					{
+						CAM_ERR(CAM_OIS, "read {0x9b28 ,0x2001} failed: %d",rc);
+					}
+					else
+					{
+						CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+						if (cmd_data == cml_ois_gyro_calibration[3].val)
+						{
+							CAM_ERR(CAM_OIS, "read {0x9b28 ,0x2001} success");
+							cmd_adress = cml_ois_gyro_calibration[4].reg;
+							rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+							if (rc < 0) 
+							{
+								CAM_ERR(CAM_OIS, "read {0x9fb0 ,0x8001} failed: %d",rc);
+							}
+							else
+							{
+								CAM_ERR(CAM_OIS,"read 0x9fb0 -> 0x%x",cmd_data);
+								if (cmd_data == cml_ois_gyro_calibration[4].val)
+									CAM_ERR(CAM_OIS,"read 0x9fb0 -> 0x%x",cmd_data);
+							}
+						}
+						mdelay(50);
+						cmd_adress = cml_ois_gyro_calibration[5].reg;
+						rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+						if (rc < 0) 
+						{
+							CAM_ERR(CAM_OIS, "read 0x9fb6  failed: %d",rc);
+						}
+						else
+						{
+							CAM_ERR(CAM_OIS,"read 0x9fb6 -> 0x%x",cmd_data);
+							gyro_offset_X = cmd_data;
+						}
+
+						
+						mdelay(50);
+						cmd_adress = cml_ois_gyro_calibration[6].reg;
+						rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+						if (rc < 0) 
+						{
+							CAM_ERR(CAM_OIS, "read 0x9fb8 failed: %d",rc);
+						}
+						else
+						{
+							CAM_ERR(CAM_OIS,"read 0x9fb8 -> 0x%x",cmd_data);
+							gyro_offset_Y = cmd_data;
+						}
+						
+						
+					}
+				}
+			}
+			else
+			{
+				CAM_ERR(CAM_OIS,"ois read value nok");
+			}
+		}
+
+	}
+	CAM_ERR(CAM_OIS,"ois calibration op end");
+	//[End]enter gyro cali mode
+
+	//[Begin]enter save mode
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[7].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[7].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x9b2c -> 0x0006");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "write {0x9b2a ,0x0001} failed %d", rc);
+	}
+
+	mdelay(50);
+	cmd_adress = cml_ois_gyro_calibration[8].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[9].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[9].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x0220 -> 0xc0d4");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "write 0x0220 -> 0xc0d4 failed %d", rc);
+	}
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[10].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[10].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x9b2a -> 0x0001");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "write 0x9b2a -> 0x0001 failed %d", rc);
+	}
+
+	mdelay(100);
+	cmd_adress = cml_ois_gyro_calibration[11].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[12].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[12].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x0220 -> 0x0000");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+	if (rc < 0) {
+		CAM_ERR(CAM_OIS, "write 0x0220 -> 0x0000 failed %d", rc);
+	}
+	CAM_ERR(CAM_OIS,"ois save gyro offset end");
+	//[End]enter save mode
+	
+	cma_release(dev_get_cma_area((o_ctrl->soc_info.dev)),	page, fw_size);
+	page = NULL;
+
+    return rc;
+}
+
+
+static int cam_ois_gyro_offset_check(struct cam_ois_ctrl_t *o_ctrl)
+{
+	int32_t                            rc = 0;
+	uint32_t cmd_adress=0,cmd_data=0;
+	
+	const REGSETTING cml_ois_gyro_offset_check[]= {
+		{0x9fb6 ,0x0000} ,//0[read]gyro offset X
+		{0x9fb8 ,0x0000} ,//1[read]gyro offset Y
+	};
+
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return -EINVAL;
+	}
+
+	
+	mdelay(50);
+	cmd_adress = cml_ois_gyro_offset_check[0].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	if (rc < 0) 
+	{
+		CAM_ERR(CAM_OIS, "read 0x9fb6  failed: %d",rc);
+	}
+	else
+	{
+		CAM_ERR(CAM_OIS,"read 0x9fb6 -> 0x%x",cmd_data);
+		gyro_offset_X_check = cmd_data;
+	}
+
+	
+	mdelay(50);
+	cmd_adress = cml_ois_gyro_offset_check[1].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	if (rc < 0) 
+	{
+		CAM_ERR(CAM_OIS, "read 0x9fb8  failed: %d",rc);
+	}
+	else
+	{
+		CAM_ERR(CAM_OIS,"read 0x9fb8 -> 0x%x",cmd_data);
+		gyro_offset_Y_check = cmd_data;
+	}
+	
+    return rc;
+}
+
+
 static int cam_ois_fw_download(struct cam_ois_ctrl_t *o_ctrl)
 {
 	uint16_t                           total_bytes = 0;
@@ -414,6 +699,76 @@ release_firmware:
  *
  * Returns success or failure
  */
+
+ssize_t ois_gyro_cali_data_show(struct device *dev, struct device_attribute *attr, char *buf){
+	
+	return sprintf(buf, "%u\n", calibration_status);
+
+}
+
+ssize_t ois_gyro_cali_data_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count){
+
+	struct cam_ois_ctrl_t *o_ctrl = NULL;
+	char cmd_buf[32];
+	uint32_t cmd_adress=0,cmd_data=0;
+	char flag;
+	int gyro_cali_flag=0,check_gyro_offset=0;
+	int rc = 0;
+
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	memset(cmd_buf,0,32);
+	o_ctrl = platform_get_drvdata(pdev);
+
+
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return count;
+	}
+	//cpy user cmd to kernel 0x:0x:r  0x:0x:w
+	strcpy(cmd_buf,buf);
+	sscanf(cmd_buf,"%x:%x:%c",&cmd_adress,&cmd_data,&flag);
+
+	if(flag=='w'){
+		CAM_ERR(CAM_OIS, "ois write:adress=0x%x,data=0x%x",cmd_adress,cmd_data);
+		if ((cmd_adress == 0x9b2c) && (cmd_data == 0x0002))//gyro offset calibration mode
+		{
+			gyro_cali_flag = 1;
+		}
+		else
+		{
+			gyro_cali_flag = 0;
+		}
+		if (gyro_cali_flag)
+		{
+			rc = cam_ois_gyro_calibration(o_ctrl);
+		}
+		CAM_ERR(CAM_OIS, "cam_ois_gyro_calibration end");
+	}
+
+	if (flag=='r')
+	{
+		CAM_ERR(CAM_OIS, "ois read:adress1=0x%x,adress2=0x%x",cmd_adress,cmd_data);
+		if ((cmd_adress == 0x9fb6) && (cmd_data == 0x9fb8))//check gyro_offset
+		{
+			check_gyro_offset = 1;
+		}
+		else
+		{
+			check_gyro_offset = 0;
+		}
+		if (check_gyro_offset)
+		{
+			rc = cam_ois_gyro_offset_check(o_ctrl);
+		}
+		CAM_ERR(CAM_OIS, "cam_ois_gyro_calibration end");
+	}
+	if ((gyro_offset_X == gyro_offset_X_check) && (gyro_offset_Y == gyro_offset_Y_check))
+		calibration_status = 1;
+	
+	return count;
+}
+
+
 static int cam_ois_pkt_parse(struct cam_ois_ctrl_t *o_ctrl, void *arg)
 {
 	int32_t                         rc = 0;
