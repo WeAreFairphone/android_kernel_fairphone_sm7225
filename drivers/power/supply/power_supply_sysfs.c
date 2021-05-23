@@ -81,6 +81,17 @@ static const char * const power_supply_scope_text[] = {
 	"Unknown", "System", "Device"
 };
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+static const char * const power_supply_usbc_text[] = {
+	"Nothing attached", "Sink attached", "Powered cable w/ sink",
+	"Debug Accessory", "Audio Adapter", "Powered cable w/o sink",
+	"Source Debug Accessory (FMB)",
+	"Source attached (default current)",
+	"Source attached (medium current)",
+	"Source attached (high current)",
+	"Non compliant",
+};
+#else
 static const char * const power_supply_usbc_text[] = {
 	"Nothing attached", "Sink attached", "Powered cable w/ sink",
 	"Debug Accessory", "Audio Adapter", "Powered cable w/o sink",
@@ -89,6 +100,7 @@ static const char * const power_supply_usbc_text[] = {
 	"Source attached (high current)",
 	"Non compliant",
 };
+#endif
 
 static const char * const power_supply_usbc_pr_text[] = {
 	"none", "dual power role", "sink", "source"
@@ -383,7 +395,11 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(esr_count),
 	POWER_SUPPLY_ATTR(buck_freq),
 	POWER_SUPPLY_ATTR(boost_current),
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	POWER_SUPPLY_ATTR(safety_timer_enable),
+#else
 	POWER_SUPPLY_ATTR(safety_timer_enabled),
+#endif
 	POWER_SUPPLY_ATTR(charge_done),
 	POWER_SUPPLY_ATTR(flash_active),
 	POWER_SUPPLY_ATTR(flash_trigger),
@@ -479,6 +495,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(cp_toggle_switcher),
 	POWER_SUPPLY_ATTR(cp_irq_status),
 	POWER_SUPPLY_ATTR(cp_ilim),
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	POWER_SUPPLY_ATTR(tcl_fixtemp),
+#endif
 	POWER_SUPPLY_ATTR(irq_status),
 	POWER_SUPPLY_ATTR(parallel_output_mode),
 	POWER_SUPPLY_ATTR(cc_toggle_enable),

@@ -2432,7 +2432,7 @@ int qtaguid_untag(struct socket *el_socket, bool kernel)
 			     from_kuid(&init_user_ns, current_fsuid()));
 	/*
 	 * This check is needed because tagging from a process that
-	 * didn’t open /dev/xt_qtaguid still adds the sock_tag_entry
+	 * didn鈥檛 open /dev/xt_qtaguid still adds the sock_tag_entry
 	 * to sock_tag_tree.
 	 */
 	if (sock_tag_entry->list.next)

@@ -3,6 +3,9 @@
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+#define pr_fmt(fmt) "[USB2_PHY]: %s: " fmt, __func__
+#endif
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/err.h>

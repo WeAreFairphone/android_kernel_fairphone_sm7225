@@ -515,3 +515,6 @@ obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_MAX98504)	+= snd-soc-max98504.o
 obj-$(CONFIG_SND_SOC_SIMPLE_AMPLIFIER)	+= snd-soc-simple-amplifier.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
+
+#$(CONFIG_SND_SMARTPA_AW881XX)
+obj-$(CONFIG_SND_SMARTPA_AW881XX) += aw881xx/aw881xx.o aw881xx/aw881xx_monitor.o aw881xx/aw881xx_cali.o
