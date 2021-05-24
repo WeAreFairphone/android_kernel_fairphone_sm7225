@@ -5701,6 +5701,8 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
                     ARRAY_SIZE(msm_hac_audio_map));
 
     snd_soc_dapm_ignore_suspend(dapm, "HAC");
+    snd_soc_dapm_ignore_suspend(dapm, "HAC_RX");
+    snd_soc_dapm_sync(dapm);
 #endif
 
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic0");
