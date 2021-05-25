@@ -20,7 +20,7 @@
 
 // Set the sign (-1 or 1) so that /sys/class/qns/current_now returns negative 
 // values while discharging and positive while charging.
-#define READ_CURRENT_SIGN	(-1)
+#define READ_CURRENT_SIGN	(1)
 
 #define CHARGE_CURRENT_PROP	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX
 #define CHARGE_VOLTAGE_PROP POWER_SUPPLY_PROP_VOLTAGE_MAX
