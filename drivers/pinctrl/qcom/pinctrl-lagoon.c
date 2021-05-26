@@ -1617,7 +1617,7 @@ static const struct msm_pingroup lagoon_groups[] = {
 };
 
 static const int lagoon_reserved_gpios[] = {
-	13, 14, 15, 16, 45, 46, 56, 57, -1
+	13, 14, 15, 16, 56, 57, -1
 };
 
 static struct msm_dir_conn lagoon_dir_conn[] = {
