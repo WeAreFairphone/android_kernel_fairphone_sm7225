@@ -15,6 +15,7 @@
 
 #include "himax_platform.h"
 #include "himax_common.h"
+#include "himax_ic_core.h"
 
 #define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
 #define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
@@ -1116,6 +1117,8 @@ int himax_chip_common_probe(struct i2c_client *client,
 	ret = himax_chip_common_init();
 	if (ret < 0)
 		goto err_common_init_failed;
+
+	g_core_fp.read_mcf_data();
 
 	return ret;
 

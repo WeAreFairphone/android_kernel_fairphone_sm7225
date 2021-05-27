@@ -169,6 +169,7 @@ extern void (*himax_mcu_cmd_struct_free)(void);
 
 #if defined(HX_TP_PROC_GUEST_INFO)
 #define HX_GUEST_INFO_FLASH_SADDR 0x20000
+#define HX_GUEST_INFO_MCF_SADDR 0x23000
 #define HX_GUEST_INFO_SIZE	10
 #define HX_GUEST_INFO_LEN_SIZE	4
 #define HX_GUEST_INFO_ID_SIZE	4
@@ -967,6 +968,7 @@ struct himax_core_fp {
 #if defined(HX_TP_PROC_GUEST_INFO)
 	int (*guest_info_get_status)(void);
 	int (*read_guest_info)(void);
+	int (*read_mcf_data)(void);
 #endif
 /* CORE_DRIVER */
 #if defined(HX_ZERO_FLASH)
