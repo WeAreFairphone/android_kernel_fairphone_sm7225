@@ -52,6 +52,8 @@ static uint8_t *g_internal_buffer;
 uint32_t dbg_reg_ary[4] = {fw_addr_fw_dbg_msg_addr, fw_addr_chk_fw_status,
 	fw_addr_chk_dd_status, fw_addr_flag_reset_event};
 
+u8 panel_mcf_data[512] = {0};
+static int hx_read_mcf_data(void);
 /* CORE_IC */
 /* IC side start*/
 static void himax_mcu_burst_enable(uint8_t auto_add_4_byte)
@@ -2880,10 +2882,10 @@ static int himax_guest_info_read(uint32_t start_addr,
 		tmp_addr[0], tmp_addr[1],
 		tmp_addr[2], tmp_addr[3]);
 
-	result = g_core_fp.fp_check_CRC(tmp_addr, flash_page_len);
+	/*result = g_core_fp.fp_check_CRC(tmp_addr, flash_page_len);
 	I("Checksum = 0x%8X\n", result);
 	if (result != 0)
-		goto END_FUNC;
+		goto END_FUNC;*/
 
 	for (temp_addr = start_addr;
 	temp_addr < (start_addr + flash_page_len);
@@ -2905,8 +2907,31 @@ static int himax_guest_info_read(uint32_t start_addr,
 		 */
 	}
 
-END_FUNC:
+//END_FUNC:
 	return result;
+}
+
+static int hx_read_mcf_data(void)
+{
+	uint32_t mcf_data_addr = HX_GUEST_INFO_MCF_SADDR;
+	int rc = 0;
+	uint32_t mcf_page_len = 0x200;
+	//unsigned int mcf_data_temp = 0;
+	uint8_t *mcf_tmp_buffer = NULL;
+
+	himax_guest_info_set_status(1);
+
+	mcf_tmp_buffer = kcalloc(HX_GUEST_INFO_SIZE * mcf_page_len,
+		sizeof(uint8_t), GFP_KERNEL);
+
+
+	rc = himax_guest_info_read(mcf_data_addr,&mcf_tmp_buffer[0]);
+	memcpy(panel_mcf_data, mcf_tmp_buffer, 512);
+
+	kfree(mcf_tmp_buffer);
+	himax_guest_info_set_status(0);
+
+	return 0;
 }
 
 static int hx_read_guest_info(void)
@@ -4220,6 +4245,7 @@ static void himax_mcu_fp_init(void)
 	g_core_fp.guest_info_get_status = himax_guest_info_get_status;
 	g_core_fp.read_guest_info = hx_read_guest_info;
 #endif
+	g_core_fp.read_mcf_data = hx_read_mcf_data;
 /* CORE_DRIVER */
 #if defined(HX_ZERO_FLASH)
 	g_core_fp.fp_reload_disable = hx_dis_rload_0f;
