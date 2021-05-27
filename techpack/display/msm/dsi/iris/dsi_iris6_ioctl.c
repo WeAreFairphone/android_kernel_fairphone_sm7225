@@ -12,6 +12,8 @@
 // 0: mipi, 1: i2c
 static int adb_type = 0;
 
+extern u8 panel_mcf_data[512];
+
 static int mdss_mipi_dsi_command(void __user *values)
 {
 	struct msmfb_mipi_dsi_cmd cmd;
@@ -948,6 +950,7 @@ int iris_configure_get(u32 type, u32 count, u32 *values)
 	struct iris_setting_info *iris_setting = iris_get_setting();
 	struct quality_setting *pqlt_cur_setting = &iris_setting->quality_cur;
 	u32 reg_addr, reg_val;
+	int i;
 
 	if (!_iris_panel_off_config(type) &&
 		!dsi_panel_initialized(pcfg->panel)) {
@@ -1036,6 +1039,8 @@ int iris_configure_get(u32 type, u32 count, u32 *values)
 		break;
 	case IRIS_MCF_DATA:
 		mutex_lock(&pcfg->panel->panel_lock);
+		for (i=0; i<count; i++)
+			values[i] = panel_mcf_data[i];
 		// read panel MCF data via mipi
 		mutex_unlock(&pcfg->panel->panel_lock);
 		break;
