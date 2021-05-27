@@ -23,7 +23,10 @@
 #if defined(CONFIG_PXLW_IRIS)
 #include "iris/dsi_iris6_api.h"
 #include "iris/dsi_iris6_log.h"
+#include "iris/dsi_iris6_lp.h"
+#include "iris/dsi_iris6_lightup.h"
 #include <video/mipi_display.h>
+extern u8 panel_mcf_data[512];
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_FTS
@@ -5328,6 +5331,115 @@ static int dsi_display_force_update_dsi_clk(struct dsi_display *display)
 	return rc;
 }
 
+static ssize_t sysfs_dsi_lcd_otp_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+
+	int i, rc = 0, count = 0, start = 0, *lenp,len = 0;
+	struct drm_panel_otp_config *config;
+	struct dsi_cmd_desc *cmds;
+	u32 flags = 0;
+	struct dsi_display *display;
+	struct dsi_display_ctrl *ctrl;
+	struct dsi_panel *panel;
+	u8 * temp_p;
+
+	pr_info("Start transfer read otp cmd\n");
+
+	display = dev_get_drvdata(dev);
+	if (!display) {
+		pr_err("Invalid display\n");
+		return 0;
+	}
+
+	ctrl = &display->ctrl[display->cmd_master_idx];
+	panel = display->panel;
+
+	if (!panel || !ctrl || !ctrl->ctrl)
+		return 0;
+
+	if (!dsi_ctrl_validate_host_state(ctrl->ctrl))
+		return 0;
+
+	rc = dsi_display_cmd_engine_enable(display);
+	if (rc) {
+		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+		       display->name, rc);
+		return 0;
+	}
+
+	config = &(panel->otp_config);
+	lenp = config->status_cmds_rlen;
+	count = config->otp_cmd.count;
+	cmds = config->otp_cmd.cmds;
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ |
+		  DSI_CTRL_CMD_CUSTOM_DMA_SCHED);
+
+	pr_info("read otp cmd count = %d , \n",count); // MODIFIED by hongwei.tian, 2019-06-06,BUG-7808648
+
+	for (i = 0; i < count; ++i) {
+		memset(config->status_buf, 0x0, SZ_1K);
+		if (cmds[i].last_command) {
+			cmds[i].msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+			flags |= DSI_CTRL_CMD_LAST_COMMAND;
+		}
+		if (config->otp_cmd.state == DSI_CMD_SET_STATE_LP)
+			cmds[i].msg.flags |= MIPI_DSI_MSG_USE_LPM;
+		cmds[i].msg.rx_buf = config->status_buf;
+		cmds[i].msg.rx_len = config->status_cmds_rlen[i];
+		rc = dsi_ctrl_cmd_transfer(ctrl->ctrl, &cmds[i].msg, &flags);
+		if (rc <= 0) {
+			pr_err("rx cmd transfer failed rc=%d\n", rc);
+			return 0;
+		}
+		temp_p = config->status_buf;
+		for (start = 0; start < lenp[i]; start++)
+		{
+			len += snprintf((buf+len), PAGE_SIZE, "%2x ", *temp_p);
+			temp_p ++;
+		}
+
+		len += snprintf((buf+len), PAGE_SIZE, "\n");
+	}
+	dsi_display_cmd_engine_disable(display);
+	return len;
+}
+
+static DEVICE_ATTR(lcd_otp_data, S_IRUGO,
+			sysfs_dsi_lcd_otp_read,
+			NULL);
+
+static struct attribute *lcd_otp_data_fs_attrs[] = {
+	&dev_attr_lcd_otp_data.attr,
+	NULL,
+};
+static struct attribute_group lcd_otp_data_fs_attrs_group = {
+	.attrs = lcd_otp_data_fs_attrs,
+};
+
+static ssize_t sysfs_fp4_dsi_lcd_otp_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int i, len = 0;
+
+	for (i = 0; i <= 256; i++)
+		len += snprintf((buf+len), PAGE_SIZE, "%x ", panel_mcf_data[i]);
+
+	len += snprintf((buf+len), PAGE_SIZE, "\n");
+
+	return len;
+}
+
+static DEVICE_ATTR(fp4_lcd_otp_data, S_IRUGO, sysfs_fp4_dsi_lcd_otp_read, NULL);
+
+static struct attribute *fp4_display_fs_attrs[] = {
+	&dev_attr_fp4_lcd_otp_data.attr,
+	NULL,
+};
+static struct attribute_group fp4_display_fs_attrs_group = {
+	.attrs = fp4_display_fs_attrs,
+};
+
 static int dsi_display_validate_split_link(struct dsi_display *display)
 {
 	int i, rc = 0;
@@ -5362,6 +5474,33 @@ static int dsi_display_validate_split_link(struct dsi_display *display)
 error:
 	host->split_link.split_link_enabled = false;
 	return rc;
+}
+
+static int dsi_display_sysfs_init(struct dsi_display *display)
+{
+	int rc = 0;
+	struct device *dev = &display->pdev->dev;
+
+	if (display->panel->otp_config.otp_enabled)
+		rc = sysfs_create_group(&dev->kobj,
+			&lcd_otp_data_fs_attrs_group);
+
+	rc = sysfs_create_group(&dev->kobj, &fp4_display_fs_attrs_group);
+	return rc;
+}
+
+static int dsi_display_sysfs_deinit(struct dsi_display *display)
+{
+	struct device *dev = &display->pdev->dev;
+
+	if (display->panel->otp_config.otp_enabled)
+		sysfs_remove_group(&dev->kobj,
+			&lcd_otp_data_fs_attrs_group);
+
+	sysfs_remove_group(&dev->kobj, &fp4_display_fs_attrs_group);
+
+	return 0;
+
 }
 
 /**
@@ -5434,6 +5573,12 @@ static int dsi_display_bind(struct device *dev,
 
 	atomic_set(&display->clkrate_change_pending, 0);
 	display->cached_clk_rate = 0;
+
+	rc = dsi_display_sysfs_init(display);
+	if (rc) {
+		pr_err("[%s] sysfs init failed, rc=%d\n", display->name, rc);
+		goto error;
+	}
 
 	memset(&info, 0x0, sizeof(info));
 
@@ -5584,6 +5729,7 @@ error_ctrl_deinit:
 		(void)dsi_phy_drv_deinit(display_ctrl->phy);
 		(void)dsi_ctrl_drv_deinit(display_ctrl->ctrl);
 	}
+	(void)dsi_display_sysfs_deinit(display);
 	(void)dsi_display_debugfs_deinit(display);
 error:
 	mutex_unlock(&display->display_lock);
@@ -5644,6 +5790,7 @@ static void dsi_display_unbind(struct device *dev,
 	}
 
 	atomic_set(&display->clkrate_change_pending, 0);
+	(void)dsi_display_sysfs_deinit(display);
 	(void)dsi_display_debugfs_deinit(display);
 
 	mutex_unlock(&display->display_lock);
