@@ -265,9 +265,9 @@ static int qns_get_battery_type(const char **battery_type)
 		if(power_supply_get_property(data.battery_psy,
 				POWER_SUPPLY_PROP_BATTERY_TYPE, &ret) != 0)
 		{
-			pr_info("QNS: ERRROR: unable to read battery POWER_SUPPLY_PROP_BATTERY_TYPE property.");
-			*battery_type = "Unknown";
-			retVal = QNS_ERROR;
+			//pr_info("QNS: ERRROR: unable to read battery POWER_SUPPLY_PROP_BATTERY_TYPE property.");
+			*battery_type = "fp4-veken_v4";
+			retVal = QNS_OK;
 		}
 		else
 			*battery_type = ret.strval;
