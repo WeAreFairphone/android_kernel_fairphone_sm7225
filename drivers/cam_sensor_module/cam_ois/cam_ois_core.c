@@ -699,6 +699,65 @@ release_firmware:
  *
  * Returns success or failure
  */
+static char ois_read_cmd_buf[32];
+
+ssize_t ois_position_data_show(struct device *dev, struct device_attribute *attr, char *buf){
+	
+	strcpy(buf,ois_read_cmd_buf);
+	return sizeof(ois_read_cmd_buf);
+}
+
+ssize_t ois_position_data_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count){
+
+	struct cam_ois_ctrl_t *o_ctrl = NULL;
+	int32_t 						   rc = 0;
+	char cmd_buf[5];
+	int32_t flag;
+	uint32_t cmd_adress=0,cmd_data=0;
+	uint32_t position_data[5];
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	memset(cmd_buf,0,5);
+	memset(ois_read_cmd_buf,0,sizeof(ois_read_cmd_buf));
+	o_ctrl = platform_get_drvdata(pdev);
+
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return count;
+	}
+	strcpy(cmd_buf,buf);
+	sscanf(cmd_buf,"%d",&flag);
+
+	if (flag == 1) {
+		cmd_adress = 0x9CB8;//POSITION_ESTIMATE_X
+		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+		if (rc < 0) {
+			CAM_ERR(CAM_OIS, "ois Failed: random read I2C settings: %d",rc);
+			return count;
+		} 
+		else{
+	        CAM_DBG(CAM_OIS,"ois read::address: 0x%x  reg_data: 0x%x",cmd_adress,cmd_data);
+			position_data[0] = cmd_data;
+	    }
+
+		cmd_adress = 0x9CBA;//POSITION_ESTIMATE_Y
+		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+		if (rc < 0) {
+			CAM_ERR(CAM_OIS, "ois Failed: random read I2C settings: %d",rc);
+			return count;
+		} 
+		else{
+	        CAM_DBG(CAM_OIS,"ois read::address: 0x%x  reg_data: 0x%x",cmd_adress,cmd_data);
+			position_data[1] = cmd_data;
+	    }
+		sprintf(ois_read_cmd_buf,"%.4x%.4x\n",position_data[0],position_data[1]);
+
+		CAM_DBG(CAM_OIS,"ois kernel read::position_X 0x%x,position_Y 0x%x",position_data[0],position_data[1]);
+	}
+
+	
+	return count;
+}
+
 
 ssize_t ois_gyro_cali_data_show(struct device *dev, struct device_attribute *attr, char *buf){
 	
