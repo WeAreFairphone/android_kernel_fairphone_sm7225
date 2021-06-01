@@ -1985,6 +1985,8 @@ static void hdd_update_tgt_vht_cap(struct hdd_context *hdd_ctx,
 #define MAC_LEN		6
 #define MAC_STR_LEN	17
 #define MAC_CHAR_NUM	2
+#define CMDLINE "/proc/cmdline"
+#define CMDLINE_LEN 1024
 static inline int is_in_range(unsigned char c,
 		unsigned char low, unsigned char high)
 {
@@ -2059,39 +2061,34 @@ static int jrd_get_mac_addr(unsigned char *eaddr)
 {
 	struct file *fp = NULL;
 	char fn[100] = {0};
-	char dp[MAC_STR_LEN + 1] = {0};
-	int l,len;
+    char dp[CMDLINE_LEN + 1] = {0};
+	int  len;
+	char *wifimac_pos = NULL;
+	char WifiMac[MAC_STR_LEN + 1] = {0};
 	loff_t pos;
 	mm_segment_t old_fs;
 	//FIXME:hard code.
 	//Modify wifi mac address file location
-	strcpy(fn, "/mnt/vendor/persist/t2m_param/wlan_macaddr");
+	strcpy(fn, CMDLINE);
 	fp = filp_open(fn, O_RDONLY, 0);
 	if(IS_ERR(fp)){
 		printk(KERN_INFO "Unable to open '%s'.\n", fn);
 		goto err_open;
 	}
-
-	l = fp->f_path.dentry->d_inode->i_size;
-	if(l < MAC_STR_LEN){
-		printk(KERN_INFO "Invalid macaddr file '%s' %d\n", fn,l);
-		goto err_format;
-	}
-
 	pos = 0;
 	old_fs=get_fs();
 	set_fs(KERNEL_DS);
-	len=vfs_read(fp, dp, MAC_STR_LEN, &pos);
+    len=vfs_read(fp, dp, CMDLINE_LEN, &pos);
 	set_fs(old_fs);
-	if(len!= MAC_STR_LEN)
+	wifimac_pos = strstr(dp, "WifiMac");
+	if (!wifimac_pos)
 	{
-		printk(KERN_INFO "Failed to read '%s'  %d  %s.\n", fn,len,dp );
+		printk(KERN_INFO "Can't find wifimac\n'");
 		goto err_format;
 	}
-
-	dp[MAC_STR_LEN] = '\0';
-	str2wa(dp, eaddr);
-
+    strncpy(WifiMac, wifimac_pos+8, 17);
+	WifiMac[MAC_STR_LEN] = '\0';
+	str2wa(WifiMac, eaddr);
 	filp_close(fp, NULL);
 	return 0;
 
