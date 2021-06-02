@@ -1986,7 +1986,7 @@ static void hdd_update_tgt_vht_cap(struct hdd_context *hdd_ctx,
 #define MAC_STR_LEN	17
 #define MAC_CHAR_NUM	2
 #define CMDLINE "/proc/cmdline"
-#define CMDLINE_LEN 1024
+#define CMDLINE_LEN 1500
 static inline int is_in_range(unsigned char c,
 		unsigned char low, unsigned char high)
 {
