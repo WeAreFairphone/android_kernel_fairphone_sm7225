@@ -1040,9 +1040,17 @@ static int div2_cp_master_get_prop(struct power_supply *psy,
 						chip->div2_cp_disable_votable);
 		break;
 	case POWER_SUPPLY_PROP_CP_SWITCHER_EN:
+#if defined(CONFIG_TCT_PM7250_COMMON)
 		rc = smb1398_get_enable_status(chip);
 		if (!rc)
 			val->intval = chip->switcher_en;
+		else
+			val->intval = 0;
+#else
+		rc = smb1398_get_enable_status(chip);
+		if (!rc)
+			val->intval = chip->switcher_en;
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CP_ISNS:
 		rc = smb1398_div2_cp_get_master_isns(chip, &isns_ua);
@@ -1107,6 +1115,10 @@ static int div2_cp_master_get_prop(struct power_supply *psy,
 		rc = -EINVAL;
 		break;
 	}
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (rc < 0)
+		rc = -ENODATA;
+#endif
 
 	return rc;
 }
@@ -1401,16 +1413,29 @@ static int smb1398_div2_cp_ilim_vote_cb(struct votable *votable,
 
 	min_ilim_ua = smb1398_div2_cp_get_min_icl(chip);
 
+#if !defined(CONFIG_TCT_PM7250_COMMON)
 	ilim_ua = (ilim_ua * DIV2_ILIM_CFG_PCT) / 100;
-
 	max_ilim_ua = is_cps_available(chip) ?
 		DIV2_MAX_ILIM_DUAL_CP_UA : DIV2_MAX_ILIM_UA;
 	ilim_ua = min(ilim_ua, max_ilim_ua);
+#endif
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (ilim_ua <= min_ilim_ua) {
+#else
 	if (ilim_ua < min_ilim_ua) {
-		dev_dbg(chip->dev, "ilim %duA is too low to config CP charging\n",
+#endif
+		dev_err(chip->dev, "ilim %duA is too low to config CP charging\n",
 				ilim_ua);
 		vote(chip->div2_cp_disable_votable, ILIM_VOTER, true, 0);
 	} else {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		ilim_ua = (ilim_ua * DIV2_ILIM_CFG_PCT) / 100;
+
+		max_ilim_ua = is_cps_available(chip) ?
+			DIV2_MAX_ILIM_DUAL_CP_UA : DIV2_MAX_ILIM_UA;
+		ilim_ua = min(ilim_ua, max_ilim_ua);
+
+#endif
 		if (is_cps_available(chip)) {
 			split_ilim = true;
 			slave_dis = ilim_ua < (2 * min_ilim_ua);
@@ -1700,9 +1725,13 @@ static void smb1398_status_change_work(struct work_struct *work)
 	 * valid due to the battery discharging later, remove
 	 * vote from CUTOFF_SOC_VOTER.
 	 */
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	vote(chip->div2_cp_disable_votable, CUTOFF_SOC_VOTER,
+				is_cutoff_soc_reached(chip), 0);
+#else
 	if (!is_cutoff_soc_reached(chip))
 		vote(chip->div2_cp_disable_votable, CUTOFF_SOC_VOTER, false, 0);
-
+#endif
 	rc = power_supply_get_property(chip->usb_psy,
 			POWER_SUPPLY_PROP_PRESENT, &pval);
 	if (rc < 0) {
@@ -1822,6 +1851,11 @@ static void smb1398_status_change_work(struct work_struct *work)
 			queue_work(system_long_wq, &chip->taper_work);
 		}
 	}
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	rerun_election(chip->div2_cp_ilim_votable);
+#endif
+
 out:
 	pm_relax(chip->dev);
 	chip->status_change_running = false;
@@ -1845,7 +1879,12 @@ static int smb1398_notifier_cb(struct notifier_block *nb,
 		if (!chip->status_change_running) {
 			chip->status_change_running = true;
 			pm_stay_awake(chip->dev);
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+			queue_work(private_chg_wq, &chip->status_change_work);
+#else
 			schedule_work(&chip->status_change_work);
+#endif
 		}
 		spin_unlock_irqrestore(&chip->status_change_lock, flags);
 	}
@@ -2047,9 +2086,15 @@ static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 		return rc;
 	}
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	/* Configure window (Vin/2 - Vout) UV level to 20mV */
+	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
+			DIV2_WIN_UV_SEL_BIT, DIV2_WIN_UV_SEL_BIT);
+#else
 	/* Configure window (Vin/2 - Vout) UV level to 10mV */
 	rc = smb1398_masked_write(chip, NOLOCK_SPARE_REG,
 			DIV2_WIN_UV_SEL_BIT, 0);
+#endif
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set WIN_UV_10_MV rc=%d\n", rc);
 		return rc;
@@ -2713,6 +2758,12 @@ static int smb1398_probe(struct platform_device *pdev)
 	struct smb1398_chip *chip;
 	int rc = 0;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (!power_supply_get_by_name("usb")) {
+		pr_err("Could not get USB power_supply, deferring smb1398 probe\n");
+		return -EPROBE_DEFER;
+	}
+#endif
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
@@ -2791,6 +2842,12 @@ static int smb1398_resume(struct device *dev)
 	struct smb1398_chip *chip = dev_get_drvdata(dev);
 
 	chip->in_suspend = false;
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if(get_effective_result(chip->div2_cp_disable_votable)) {
+		return 0;
+	}
+#endif
 
 	if (chip->div2_cp_role == DIV2_CP_MASTER) {
 		rerun_election(chip->div2_cp_ilim_votable);

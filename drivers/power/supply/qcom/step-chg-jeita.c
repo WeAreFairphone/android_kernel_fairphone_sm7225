@@ -651,7 +651,7 @@ static void taper_fcc_step_chg(struct step_chg_info *chip, int index,
 #define LIMIT_VBAT_MAX	(4400000)
 #define LIMIT_VBAT_MIN	(4300000)
 #define LIMIT_VBAT_CV	(4350000)
-#define CV_DOWN_DELTA_UA	(100000)
+#define CV_DOWN_DELTA_UA	(200000)
 #define CV_UP_DELTA_UA		(50000)
 #define MIN_FCC_UA		(500000)
 #define MAX_FCC_UA		(2000000)

@@ -954,8 +954,13 @@ int smblib_get_qc3_main_icl_offset(struct smb_charger *chg, int *offset_ua)
 		return rc;
 	}
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (!pval.intval)
+		return -ENXIO;
+#else
 	if (!pval.intval)
 		return -EINVAL;
+#endif
 
 	rc = power_supply_get_property(chg->cp_psy, POWER_SUPPLY_PROP_CP_ILIM,
 					&pval);
@@ -3538,6 +3543,15 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 		return rc;
 	}
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read USBIN_RT_STS rc=%d\n", rc);
+		return rc;
+	}
+	val->intval = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
+	return 0;
+#else
 	rc = smblib_read(chg, POWER_PATH_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read POWER_PATH_STATUS rc=%d\n",
@@ -3550,6 +3564,7 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 	val->intval = (stat & USE_USBIN_BIT) &&
 		      (stat & VALID_INPUT_POWER_SOURCE_STS_BIT);
 	return rc;
+#endif
 }
 
 int smblib_get_usb_online(struct smb_charger *chg,
@@ -3600,9 +3615,6 @@ int smblib_get_prop_usb_voltage_max_design(struct smb_charger *chg,
 			val->intval = MICRO_9V;
 		else
 			val->intval = MICRO_12V;
-#if defined(CONFIG_TCT_PM7250_COMMON)
-		val->intval = MICRO_9V;
-#endif
 		break;
 	default:
 		val->intval = MICRO_5V;
@@ -3632,9 +3644,6 @@ int smblib_get_prop_usb_voltage_max(struct smb_charger *chg,
 			val->intval = MICRO_9V;
 		else
 			val->intval = MICRO_12V;
-#if defined(CONFIG_TCT_PM7250_COMMON)
-		val->intval = MICRO_9V;
-#endif
 		break;
 	case POWER_SUPPLY_TYPE_USB_PD:
 		val->intval = chg->voltage_max_uv;
@@ -4247,11 +4256,22 @@ int smblib_get_prop_input_current_max(struct smb_charger *chg,
 	if (rc < 0)
 		return rc;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if (((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3)
+		|| (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP)
+		|| (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_PD)
+		|| (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3P5))
+		&& (icl_ua < HW_ICL_MAX)) {
+		val->intval = HW_ICL_MAX;
+		return 0;
+	}
+#else
 	if (is_override_vote_enabled_locked(chg->usb_icl_votable) &&
 					icl_ua < USBIN_1000MA) {
 		val->intval = USBIN_1000MA;
 		return 0;
 	}
+#endif
 
 	return smblib_get_charge_param(chg, &chg->param.icl_stat, &val->intval);
 }
@@ -6323,12 +6343,36 @@ static void update_sw_icl_max(struct smb_charger *chg, int pst)
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
 	const struct apsd_result *apsd_result;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	int rc;
+	union power_supply_propval val = {0, };
+#endif
 
 	if (!rising)
 		return;
 
 	apsd_result = smblib_update_usb_type(chg);
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if ((chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP)
+		|| (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3)
+		|| (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3P5)) {
+		rc = smblib_get_prop_usb_voltage_now(chg, &val);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read usbin_v, rc=%d\n", rc);
+			return;
+		}
+		if (val.intval >= 11000000) {
+			smblib_dbg(chg, PR_MISC, "USBOV: type=%d, v=%duV\n",
+					chg->real_charger_type, val.intval);
+			chg->qc3p5_detected = false;
+			smblib_hvdcp_detect_enable(chg, false);
+			smblib_rerun_apsd(chg);
+			smblib_run_aicl(chg, RERUN_AICL_BIT);
+			return;
+		}
+	}
+#endif
 	update_sw_icl_max(chg, apsd_result->pst);
 
 	switch (apsd_result->bit) {
@@ -8181,8 +8225,17 @@ static void smblib_chg_termination_work(struct work_struct *work)
 	vote(chg->awake_votable, CHG_TERMINATION_VOTER, true, 0);
 
 	rc = smblib_is_input_present(chg, &input_present);
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	if ((rc < 0) || !input_present) {
+		vote(chg->usb_icl_votable, CHG_TERMINATION_VOTER, false, 0);
+		vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER, false, 0);
+		goto out;
+	}
+#else
 	if ((rc < 0) || !input_present)
 		goto out;
+#endif
 
 	rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_REAL_CAPACITY, &pval);

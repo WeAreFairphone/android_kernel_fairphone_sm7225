@@ -287,7 +287,12 @@ static int get_adapter_icl_based_ilim(struct pl_data *chip)
  */
 static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 {
-	int rc, fcc, target_icl;
+	#if defined(CONFIG_TCT_PM7250_COMMON)
+		int rc, fcc;
+	#else
+		int rc, fcc, target_icl;
+	#endif
+
 	union power_supply_propval pval = {0, };
 
 	if (!is_usb_available(chip))
@@ -300,10 +305,11 @@ static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 	if (cp_get_parallel_mode(chip, PARALLEL_OUTPUT_MODE)
 					== POWER_SUPPLY_PL_OUTPUT_VPH)
 		return;
-#endif
+
 
 	target_icl = get_adapter_icl_based_ilim(chip);
 	ilim = (target_icl > 0) ? min(ilim, target_icl) : ilim;
+#endif
 
 	rc = power_supply_get_property(chip->cp_master_psy,
 				POWER_SUPPLY_PROP_MIN_ICL, &pval);
@@ -2056,7 +2062,7 @@ static void handle_parallel_in_taper(struct pl_data *chip)
 }
 #endif
 
-#if !defined(CONFIG_TCT_PM7250_COMMON)
+#if 1//!defined(CONFIG_TCT_PM7250_COMMON)
 static void handle_usb_change(struct pl_data *chip)
 {
 	int rc;
@@ -2155,7 +2161,7 @@ static void status_change_work(struct work_struct *work)
 	is_parallel_available(chip);
 #endif
 
-#if !defined(CONFIG_TCT_PM7250_COMMON)
+#if 1//!defined(CONFIG_TCT_PM7250_COMMON)
 	handle_usb_change(chip);
 #endif
 
