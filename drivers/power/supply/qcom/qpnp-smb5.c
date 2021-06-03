@@ -256,7 +256,7 @@ module_param_named(
 );
 #endif
 
-#if defined(CONFIG_TCT_OTTAWA_CHG_PATCH)
+#if defined(CONFIG_TCT_PM7250_COMMON)
 static int force_icl = -1;
 module_param_named(
 	force_icl, force_icl,
