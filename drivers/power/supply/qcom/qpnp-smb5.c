@@ -257,13 +257,13 @@ module_param_named(
 #endif
 
 #if defined(CONFIG_TCT_PM7250_COMMON)
-static int force_icl = -1;
+static int force_icl = 800000;
 module_param_named(
 	force_icl, force_icl,
 	int, S_IRUSR | S_IWUSR
 );
 
-static int force_fcc = -1;
+static int force_fcc = 800000;
 module_param_named(
 	force_fcc, force_fcc,
 	int, S_IRUSR | S_IWUSR
