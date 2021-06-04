@@ -1793,8 +1793,8 @@ int iris_parse_param(struct device_node *np, struct dsi_panel *panel)
 		pcfg->non_embedded_xfer_len[1] = 0x400;
 	}
 
-	pcfg->dsirecover_check_method = CHECK_NONE; //CHECK_WRITE_AND_READ;
-	pcfg->dsirecover_check_path = PATH_DSI; //PATH_I2C;
+	pcfg->dsirecover_check_method = CHECK_WRITE_AND_READ; //CHECK_WRITE_AND_READ;
+	pcfg->dsirecover_check_path = PATH_I2C; //PATH_I2C;
 	pcfg->pq_update_is_dsi_hs = 1;
 
 	rc = _iris_parse_color_temp_range(lightup_node, pcfg);
@@ -3098,8 +3098,8 @@ int iris_lightup(struct dsi_panel *panel, struct dsi_panel_cmd_set *on_cmds)
 		_iris_send_iris_cmds(panel, 1);
 
 	/* do not merge */
-	if (pcfg->pq_update_path == PATH_DSI)
-		iris_dsirecover_check(IRIS_PQUPDATE_OP);
+	//if (pcfg->pq_update_path == PATH_DSI)
+	//	iris_dsirecover_check(IRIS_PQUPDATE_OP);
 	/* do not merge end */ 
 
 	if (type == IRIS_CONT_SPLASH_LK)
@@ -3124,6 +3124,7 @@ int iris_lightup(struct dsi_panel *panel, struct dsi_panel_cmd_set *on_cmds)
 		pcfg->valid = FULL_LIGHTUP;
 	}
 
+        iris_dma_ch1_trigger(true, 0);
 #ifdef IRIS_MIPI_TEST
 	iris_read_power_mode(panel);
 #endif
@@ -3139,7 +3140,11 @@ int iris_enable(struct dsi_panel *panel, struct dsi_panel_cmd_set *on_cmds)
 	int lightup_opt = iris_lightup_opt_get();
 	u32 regs[] = {0xf1100808, 0xf1100818, 0xf1100a00, 0xf1100034, 0xf1100204};
 
+	//we use PATH_I2C as the first path for pq update until panel on/off
+	pcfg->pq_update_path = PATH_DSI;
+
 	__iris_cont_splash_video_path_check(pcfg);
+
 	IRIS_LOGI("%s(), lightup opt: 0x%x", __func__, lightup_opt);
 
 	iris_lp_enable_pre();
@@ -3324,6 +3329,10 @@ static int _iris_cont_splash_video_lightup_thread_main(void *data)
 		iris_abyp_switch_proc(pcfg->display, IRIS_ABYP_MODE, true);
 	}
 	__iris_cont_splash_video_path_check(pcfg);
+
+        //we use PATH_I2C as the first path for pq update until panel on/off
+        pcfg->pq_update_path = PATH_I2C;
+
 	IRIS_LOGI("%s(%d) <<<<<<END<<<---", __func__, __LINE__);
 	return 0;
 }
