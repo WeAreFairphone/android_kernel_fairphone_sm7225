@@ -706,13 +706,20 @@ static int _iris_pt_send_cmds(struct dsi_panel *panel,
 	struct dsi_panel_cmd_set panel_cmds;
 	struct iris_cfg *pcfg = iris_get_cfg();
 	int rc = 0;
+	u8 vc_id = 0;
 	memset(&panel_cmds, 0x00, sizeof(panel_cmds));
 
 	panel_cmds.cmds = ptx_cmds;
 	panel_cmds.count = cmds_cnt;
 	panel_cmds.state = DSI_CMD_SET_STATE_HS;
+
+	if (pcfg->vc_ctrl.vc_enable) {
+		vc_id = (panel_cmds.state == DSI_CMD_SET_STATE_LP) ?
+			pcfg->vc_ctrl.to_panel_lp_vc_id :
+			pcfg->vc_ctrl.to_panel_hs_vc_id;
+	}
 	rc = iris_dsi_send_cmds(panel, panel_cmds.cmds,
-							panel_cmds.count, panel_cmds.state, pcfg->vc_ctrl.to_panel_hs_vc_id);
+			panel_cmds.count, panel_cmds.state, vc_id);
 
 	if (iris_get_cont_splash_type() == IRIS_CONT_SPLASH_LK)
 		iris_print_desc_cmds(panel_cmds.cmds,
@@ -1037,8 +1044,14 @@ static int _iris_pt_read(struct dsi_panel_cmd_set *cmdset, uint8_t path)
 				rbuf[i * 4 + j] = val.p[j];
 		}
 	} else {
-		for (i = 0; i < rlen; i++)
-			rbuf[i] = val.p[offset + i];
+		if (offset < 4) {
+			for (i = 0; i < rlen; i++)
+				rbuf[i] = val.p[offset + i];
+		} else {
+			val.pld32 = iris_ocp_read(address, DSI_CMD_SET_STATE_HS);
+			for (i = 0; i < rlen; i++)
+				rbuf[i] = val.p[i];
+		}
 	}
 
 	return rc;

@@ -128,7 +128,7 @@ void iris_lp_init(void)
 	iris_abyp_mode = IRIS_ABYP_MODE;
 #endif
 
-	pcfg->read_path = PATH_DSI; //PATH_I2C;
+	pcfg->read_path = PATH_I2C; //PATH_I2C;
 
 	pcfg->abyp_ctrl.pending_mode = MAX_MODE;
 	mutex_init(&pcfg->abyp_ctrl.abyp_mutex);
@@ -177,10 +177,15 @@ void iris_lp_enable_post(void)
 	lp_hdr_power_type = 2;	//to make hdr power type is different
 	iris_ulps_set(pcfg->lp_ctrl.ulps_lp, 1);
 	iris_dynamic_power_set(pcfg->lp_ctrl.dynamic_power, 1);
-	iris_pmu_hdr_set(0, 0); //set hdr power off
-	_iris_dbp_init(pcfg->dpp_only_enable, 0);
-	_iris_extra_dma_trigger(0);
-	iris_dma_ch1_trigger(true, 0);
+	if (pcfg->cont_splash_status == 0) {
+		iris_pmu_hdr_set(0, 1); //set hdr power off
+		_iris_dbp_init(pcfg->dpp_only_enable, 1);
+		_iris_extra_dma_trigger(0);
+	} else {
+		iris_pmu_hdr_set(0, 0); //set hdr power off
+		_iris_dbp_init(pcfg->dpp_only_enable, 0);
+		_iris_extra_dma_trigger(0);
+	}
 }
 
 /*== PMU related APIs ==*/
@@ -464,6 +469,11 @@ static void _iris_abp_ctrl_init(bool chain)
 void iris_dma_ch1_trigger(bool en, bool chain)
 {
 	struct iris_update_regval regval;
+	struct iris_cfg *pcfg;
+
+	pcfg = iris_get_cfg();
+	if (pcfg->cont_splash_status == 0)
+		return;
 
 	if (iris_get_abyp_mode_blocking() != IRIS_PT_MODE)
 		return;
@@ -1114,7 +1124,7 @@ void _iris_dbp_init(bool enable, bool chain)
 
 	regval.ip = IRIS_IP_RX;
 	regval.opt_id = ID_MIPI_BYPASS_CTRL_DMA;
-	regval.mask = 0xa;
+	regval.mask = 0x2;
 	regval.value = enable ? 0x2 : 0x0;
 	iris_update_bitmask_regval_nonread(&regval, false);
 	iris_init_update_ipopt_t(regval.ip, regval.opt_id, regval.opt_id, 0x01);
