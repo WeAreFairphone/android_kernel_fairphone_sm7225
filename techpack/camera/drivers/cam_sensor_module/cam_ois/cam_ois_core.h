@@ -34,6 +34,7 @@ ssize_t ois_gyro_cali_data_show(struct device *dev, struct device_attribute *att
 ssize_t ois_gyro_cali_data_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
 ssize_t ois_position_data_show(struct device *dev, struct device_attribute *attr, char *buf);
 ssize_t ois_position_data_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
-
+ssize_t ois_status_show(struct device *dev, struct device_attribute *attr, char *buf);
+ssize_t ois_status_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
 #endif
 /* _CAM_OIS_CORE_H_ */
