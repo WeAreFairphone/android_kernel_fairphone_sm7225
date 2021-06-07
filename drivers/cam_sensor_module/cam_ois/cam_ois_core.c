@@ -316,7 +316,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 		{0x9b28 ,0x2000} ,//1[read]check mode
 		{0x9b2a ,0x0001} ,//2[write]
 		{0x9b28 ,0x2001} ,//3[read]calibration done
-		{0x9fb0 ,0x8001} ,//4[read]gyro offset calibratin result
+		{0x9fb0 ,0x8001} ,//4[read]gyro offset calibration result
 		{0x9fb6 ,0x0000} ,//5[read]gyro offset X
 		{0x9fb8 ,0x0000} ,//6[read]gyro offset Y
 		//save mode
@@ -707,7 +707,6 @@ static int cam_cml_ois_enable(struct cam_ois_ctrl_t *o_ctrl)
 	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
 	struct page                       *page = NULL;
   	uint32_t                           fw_size;
-	uint32_t cmd_adress=0,cmd_data=0;
 	
 
 	if (!o_ctrl) {
@@ -749,16 +748,7 @@ static int cam_cml_ois_enable(struct cam_ois_ctrl_t *o_ctrl)
 	if (rc < 0) {
 		CAM_ERR(CAM_OIS, "write {0x9b2a ,0x0001} failed %d", rc);
 	}
-
 	mdelay(50);
-	cmd_adress = cml_ois_control[2].reg;
-	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-	CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
-
-	if (cmd_data == cml_ois_control[2].val)
-		rc = 1;
-	else
-		rc = 0;
 	
 	cma_release(dev_get_cma_area((o_ctrl->soc_info.dev)),	page, fw_size);
 	page = NULL;
@@ -773,7 +763,6 @@ static int cam_cml_ois_disable(struct cam_ois_ctrl_t *o_ctrl)
 	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
 	struct page                       *page = NULL;
   	uint32_t                           fw_size;
-	uint32_t cmd_adress=0,cmd_data=0;
 	
 
 	if (!o_ctrl) {
@@ -815,16 +804,7 @@ static int cam_cml_ois_disable(struct cam_ois_ctrl_t *o_ctrl)
 	if (rc < 0) {
 		CAM_ERR(CAM_OIS, "write {0x9b2a ,0x0000} failed %d", rc);
 	}
-
 	mdelay(50);
-	cmd_adress = cml_ois_control[4].reg;
-	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-	CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
-
-	if (cmd_data == cml_ois_control[4].val)
-		rc = 1;
-	else
-		rc = 0;
 	
 	cma_release(dev_get_cma_area((o_ctrl->soc_info.dev)),	page, fw_size);
 	page = NULL;
@@ -893,6 +873,29 @@ ssize_t ois_position_data_store(struct device *dev,  struct device_attribute *at
 }
 
 ssize_t ois_status_show(struct device *dev, struct device_attribute *attr, char *buf){
+
+	struct cam_ois_ctrl_t *o_ctrl = NULL;
+	uint32_t cmd_adress=0,cmd_data=0;
+	int rc = 0;
+	
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	o_ctrl = platform_get_drvdata(pdev);
+
+	cmd_adress = cml_ois_control[2].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+
+	if (cmd_data == cml_ois_control[2].val) {
+		ois_status = 1;
+		CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+	}
+	else if (cmd_data == cml_ois_control[4].val) {
+		ois_status = 2;
+		CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+	}
+	else {
+		ois_status = 0;
+		CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+	}
 	
 	return sprintf(buf, "%u\n", ois_status);
 
@@ -904,7 +907,6 @@ ssize_t ois_status_store(struct device *dev,  struct device_attribute *attr, con
 	char cmd_buf[32];
 	uint32_t cmd_adress=0,cmd_data=0;
 	char flag;
-	int rc = 0;
 	
 	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	memset(cmd_buf,0,32);
@@ -921,30 +923,15 @@ ssize_t ois_status_store(struct device *dev,  struct device_attribute *attr, con
 /*************			OIS enable BEGIN	                ******************/
 	if ((flag == 'w') && (cmd_adress == 0x9b2a) && (cmd_data == 0x0001))
 	{
-		rc = cam_cml_ois_enable(o_ctrl);
-		if (rc == 1){
-			ois_status = 1;
-			CAM_ERR(CAM_OIS, "ois enable success");
-		}
-		else {
-			ois_status = 0;
-			CAM_ERR(CAM_OIS, "ois enable failed");
-		}
+		cam_cml_ois_enable(o_ctrl);
+
 	}
 /*************			OIS enable END	    				******************/
 
 /*************			OIS disable BEGIN					******************/
 	if ((flag == 'w') && (cmd_adress == 0x9b2a) && (cmd_data == 0x0003))
 	{
-		rc = cam_cml_ois_disable(o_ctrl);
-		if (rc == 1) {
-			ois_status = 2;
-			CAM_ERR(CAM_OIS, "ois disable success");
-		}
-		else {
-			ois_status = 0;
-			CAM_ERR(CAM_OIS, "ois disable failed");
-		}
+		cam_cml_ois_disable(o_ctrl);
 	}
 /*************			OIS disable BEGIN					******************/
 
