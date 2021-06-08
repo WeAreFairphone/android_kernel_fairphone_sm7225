@@ -1118,6 +1118,12 @@ int himax_chip_common_probe(struct i2c_client *client,
 	if (ret < 0)
 		goto err_common_init_failed;
 
+	ret = g_core_fp.fp_read_i2c_status();
+	if (ret) {
+		E("i2c communication error\n");
+		goto err_common_init_failed;
+	}
+
 	g_core_fp.read_mcf_data();
 
 	return ret;
