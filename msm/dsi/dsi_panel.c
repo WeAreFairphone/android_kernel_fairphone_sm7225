@@ -33,6 +33,12 @@
 #define DEFAULT_PANEL_PREFILL_LINES	25
 #define MIN_PREFILL_LINES      35
 
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+bool g_lcd_on = true;
+#endif
+
+
 enum dsi_dsc_ratio_type {
 	DSC_8BPC_8BPP,
 	DSC_10BPC_8BPP,
@@ -3257,10 +3263,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 	esd_config->status_mode = ESD_MODE_MAX;
 	esd_config->esd_enabled = utils->read_bool(utils->data,
 		"qcom,esd-check-enabled");
-
+	pr_err("%s --------esd_config->esd_enabled1 = %d \n",__func__,esd_config->esd_enabled);
 	if (!esd_config->esd_enabled)
 		return 0;
-
+	pr_err("%s --------esd_config->esd_enabled2 = %d \n",__func__,esd_config->esd_enabled);
 	rc = utils->read_string(utils->data,
 			"qcom,mdss-dsi-panel-status-check-mode", &string);
 	if (!rc) {
@@ -3268,6 +3274,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel)
 			esd_config->status_mode = ESD_MODE_SW_BTA;
 		} else if (!strcmp(string, "reg_read")) {
 			esd_config->status_mode = ESD_MODE_REG_READ;
+#ifdef CONFIG_TOUCHSCREEN_FTS
+		} else if (!strcmp(string, "i2c_reg_read")) {
+			esd_config->status_mode = ESD_MODE_I2C_REG_READ;
+#endif
 		} else if (!strcmp(string, "te_signal_check")) {
 			if (panel->panel_mode == DSI_OP_CMD_MODE) {
 				esd_config->status_mode = ESD_MODE_PANEL_TE;
@@ -4437,6 +4447,12 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		       panel->name, rc);
 	else
 		panel->panel_initialized = true;
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		g_lcd_on = panel->panel_initialized;
+#endif
+
+
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -4523,6 +4539,9 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	}
 	panel->panel_initialized = false;
 	panel->power_mode = SDE_MODE_DPMS_OFF;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		g_lcd_on = false;
+#endif
 
 	mutex_unlock(&panel->panel_lock);
 	return rc;
