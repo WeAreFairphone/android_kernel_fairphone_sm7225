@@ -352,6 +352,10 @@ EXPORT_SYMBOL_GPL(system_power_efficient_wq);
 struct workqueue_struct *system_freezable_power_efficient_wq __read_mostly;
 EXPORT_SYMBOL_GPL(system_freezable_power_efficient_wq);
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+struct workqueue_struct *private_chg_wq __read_mostly;
+EXPORT_SYMBOL_GPL(private_chg_wq);
+#endif
 static int worker_thread(void *__worker);
 static void workqueue_sysfs_unregister(struct workqueue_struct *wq);
 
@@ -5817,6 +5821,13 @@ int __init workqueue_init_early(void)
 	system_freezable_power_efficient_wq = alloc_workqueue("events_freezable_power_efficient",
 					      WQ_FREEZABLE | WQ_POWER_EFFICIENT,
 					      0);
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	private_chg_wq = alloc_workqueue("private_chg_wq",
+					      WQ_FREEZABLE, 0);
+	BUG_ON(!private_chg_wq);
+#endif
+
 	BUG_ON(!system_wq || !system_highpri_wq || !system_long_wq ||
 	       !system_unbound_wq || !system_freezable_wq ||
 	       !system_power_efficient_wq ||
