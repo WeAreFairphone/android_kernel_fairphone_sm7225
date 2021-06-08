@@ -699,7 +699,7 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 		s_ctrl->sensor_probe_addr_type,
 		s_ctrl->sensor_probe_data_type);
 
-	CAM_DBG(CAM_SENSOR, "read id: 0x%x expected id 0x%x:",
+	CAM_DBG(CAM_SENSOR, "read id: 0x%x expected id 0x%x:", // MODIFIED by yixiang.wu, 2021-01-22,BUG-10277816
 		chipid, slave_info->sensor_id);
 
 	if (cam_sensor_id_by_mask(s_ctrl, chipid) != slave_info->sensor_id) {
@@ -858,10 +858,12 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 
+		/* MODIFIED-BEGIN by yixiang.wu, 2021-01-22,BUG-10277816*/
 		rc = cam_sensor_power_up(s_ctrl);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
 			goto release_mutex;
+			/* MODIFIED-END by yixiang.wu,BUG-10277816*/
 		}
 
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
@@ -947,7 +949,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 
-		if (s_ctrl->i2c_data.streamon_settings.is_settings_valid &&
+		if (s_ctrl->i2c_data.streamon_settings.is_settings_valid && // MODIFIED by yixiang.wu, 2021-01-22,BUG-10277816
 			(s_ctrl->i2c_data.streamon_settings.request_id == 0)) {
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON);
@@ -956,7 +958,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 					"cannot apply streamon settings");
 				goto release_mutex;
 			}
-		}
+		} // MODIFIED by yixiang.wu, 2021-01-22,BUG-10277816
 		s_ctrl->sensor_state = CAM_SENSOR_START;
 		CAM_INFO(CAM_SENSOR,
 			"CAM_START_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
