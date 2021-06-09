@@ -145,5 +145,6 @@ obj-$(CONFIG_REGULATOR_REFGEN) += refgen.o
 obj-$(CONFIG_REGULATOR_SPM) += spm-regulator.o
 obj-$(CONFIG_REGULATOR_RPMH) += rpmh-regulator.o
 obj-$(CONFIG_REGULATOR_STUB) += stub-regulator.o
+obj-y += esim-regulator.o 
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG

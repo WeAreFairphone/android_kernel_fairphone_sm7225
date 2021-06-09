@@ -256,14 +256,14 @@ module_param_named(
 );
 #endif
 
-#if defined(CONFIG_TCT_OTTAWA_CHG_PATCH)
-static int force_icl = -1;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+static int force_icl = 800000;
 module_param_named(
 	force_icl, force_icl,
 	int, S_IRUSR | S_IWUSR
 );
 
-static int force_fcc = -1;
+static int force_fcc = 800000;
 module_param_named(
 	force_fcc, force_fcc,
 	int, S_IRUSR | S_IWUSR
@@ -975,6 +975,7 @@ static enum power_supply_property smb5_usb_props[] = {
 	POWER_SUPPLY_PROP_APSD_TIMEOUT,
 	POWER_SUPPLY_PROP_CHARGER_STATUS,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
+	POWER_SUPPLY_PROP_CONNECTOR_TEMP,
 };
 
 static int smb5_usb_get_prop(struct power_supply *psy,
@@ -1088,6 +1089,11 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
 		val->intval = smblib_get_prop_connector_health(chg);
 		break;
+
+	case POWER_SUPPLY_PROP_CONNECTOR_TEMP:
+		val->intval = chg->connector_temp;
+		break;
+
 	case POWER_SUPPLY_PROP_SCOPE:
 		rc = smblib_get_prop_scope(chg, val);
 		break;
@@ -1538,6 +1544,10 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	enum power_supply_type real_chg_type = chg->real_charger_type;
 	int rc = 0, offset_ua = 0;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	int proper_fcc;
+#endif
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
@@ -1548,8 +1558,23 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		if (rc < 0)
 			offset_ua = 0;
 
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		if ((val->intval + offset_ua) > chg->batt_profile_fcc_ua) {
+			proper_fcc = chg->batt_profile_fcc_ua;
+		} else if ((rc == -ENXIO)
+			&& (is_override_vote_enabled_locked(chg->fcc_main_votable))) {
+			proper_fcc = get_effective_result_locked(chg->fcc_votable);
+		} else {
+			proper_fcc = val->intval + offset_ua;
+		}
+		pr_err("set final main_fcc = %d, %d + %d\n", proper_fcc,
+				val->intval, offset_ua);
+		rc = smblib_set_charge_param(chg, &chg->param.fcc,
+						proper_fcc);
+#else
 		rc = smblib_set_charge_param(chg, &chg->param.fcc,
 						val->intval + offset_ua);
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_icl_current(chg, val->intval);
@@ -1594,10 +1619,20 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
 #if defined(CONFIG_TCT_PM7250_COMMON)
-		return -EINVAL;
-#endif
+		if ((val->intval > 0) && (force_fcc >= 0)) {
+			pr_err("FORCE_MAIN_FCC: %d -> %d\n", val->intval,
+					force_fcc);
+			vote_override(chg->fcc_main_votable, CC_MODE_VOTER,
+						true, force_fcc);
+		} else {
+			pr_err("FORCE_MAIN_FCC: %d\n", val->intval);
+			vote_override(chg->fcc_main_votable, CC_MODE_VOTER,
+				(val->intval < 0) ? false : true, val->intval);
+		}
+#else
 		vote_override(chg->fcc_main_votable, CC_MODE_VOTER,
 				(val->intval < 0) ? false : true, val->intval);
+#endif
 		if (val->intval >= 0)
 			chg->chg_param.forced_main_fcc = val->intval;
 		/*
@@ -1612,10 +1647,20 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
 #if defined(CONFIG_TCT_PM7250_COMMON)
-		return -EINVAL;
-#endif
+		if ((val->intval > 0) && (force_icl >= 0)) {
+			pr_err("FORCE_MAIN_ICL: %d -> %d\n", val->intval,
+					force_icl);
+			vote_override(chg->usb_icl_votable, CC_MODE_VOTER,
+						true, force_icl);
+		} else {
+			pr_err("FORCE_MAIN_ICL: %d\n", val->intval);
+			vote_override(chg->usb_icl_votable, CC_MODE_VOTER,
+				(val->intval < 0) ? false : true, val->intval);
+		}
+#else
 		vote_override(chg->usb_icl_votable, CC_MODE_VOTER,
 				(val->intval < 0) ? false : true, val->intval);
+#endif
 		/* Main ICL updated re-calculate ILIM */
 		if (real_chg_type == POWER_SUPPLY_TYPE_USB_HVDCP_3 ||
 			real_chg_type == POWER_SUPPLY_TYPE_USB_HVDCP_3P5)
@@ -3976,12 +4021,14 @@ static int smb5_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+#if !defined(CONFIG_TCT_PM7250_COMMON)
 	rc = smb5_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n",
 			rc);
 		goto cleanup;
 	}
+#endif
 
 	rc = smb5_request_interrupts(chip);
 	if (rc < 0) {
@@ -3994,10 +4041,6 @@ static int smb5_probe(struct platform_device *pdev)
 		pr_err("Failed in post init rc=%d\n", rc);
 		goto free_irq;
 	}
-
-#if defined(CONFIG_TCT_PM7250_COMMON)
-	recheck_unknown_typec(chg);
-#endif
 
 	smb5_create_debugfs(chip);
 
@@ -4014,6 +4057,19 @@ static int smb5_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(chg->dev, true);
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	rc = smb5_determine_initial_status(chip);
+	if (rc < 0) {
+		pr_err("Couldn't determine initial status rc=%d\n",
+			rc);
+		goto free_irq;
+	}
+#endif
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	recheck_unknown_typec(chg);
+#endif
 
 	pr_info("QPNP SMB5 probed successfully\n");
 

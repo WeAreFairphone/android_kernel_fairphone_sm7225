@@ -609,8 +609,8 @@ static inline void start_usb_host(struct usbpd *pd, bool ss)
 	val.intval = (cc == ORIENTATION_CC2);
 	extcon_set_property(pd->extcon, EXTCON_USB_HOST,
 			EXTCON_PROP_USB_TYPEC_POLARITY, val);
-
-#if defined(CONFIG_TCT_PM7250_COMMON)
+//support USB3.0
+#if 0//defined(CONFIG_TCT_PM7250_COMMON)
 	val.intval = 0;
 #else
 	val.intval = ss;
@@ -650,7 +650,7 @@ static inline void start_usb_peripheral(struct usbpd *pd)
 	extcon_set_property(pd->extcon, EXTCON_USB,
 			EXTCON_PROP_USB_TYPEC_POLARITY, val);
 
-#if defined(CONFIG_TCT_PM7250_COMMON)
+#if 0// defined(CONFIG_TCT_PM7250_COMMON)
 	val.intval = 0;
 #else
 	val.intval = 1;
