@@ -672,9 +672,14 @@ void dsi_ctrl_hw_cmn_kickoff_command(struct dsi_ctrl_hw *ctrl,
 	reg &= ~BIT(29);/* WC_SEL to 0 */
 	DSI_W32(ctrl, DSI_COMMAND_MODE_DMA_CTRL, reg);
 
+#if defined(CONFIG_PXLW_IRIS)
+	/* set DMA FIFO read watermark to 15/16 full */
+	reg = 0x33;
+#else
 	reg = DSI_R32(ctrl, DSI_DMA_FIFO_CTRL);
 	reg |= BIT(20);/* Disable write watermark*/
 	reg |= BIT(16);/* Disable read watermark */
+#endif
 
 	DSI_W32(ctrl, DSI_DMA_FIFO_CTRL, reg);
 	DSI_W32(ctrl, DSI_DMA_CMD_OFFSET, cmd->offset);
@@ -859,7 +864,26 @@ u32 dsi_ctrl_hw_cmn_get_cmd_read_data(struct dsi_ctrl_hw *ctrl,
 			*temp++ = ntohl(data);
 		off -= 4;
 	}
+#if defined(CONFIG_PXLW_IRIS)
+	pr_debug("dsi: rx_byte %d, read_cnt %d, ack_err %d, cnt %d, off 0x%x\n",
+			 rx_byte, read_cnt, ack_err, cnt, off);
+	pr_debug("DSI_ACK_ERR_STATUS = 0x%x\n", DSI_R32(ctrl, DSI_ACK_ERR_STATUS));
 
+	if (read_cnt == 12) {
+		int cmd, wc, data2, data1, prefix;
+		data2 = DSI_R32(ctrl, DSI_RDBK_DATA2);
+		data1 = DSI_R32(ctrl, DSI_RDBK_DATA1);
+		data = DSI_R32(ctrl, DSI_RDBK_DATA0);
+
+		cmd = (data2 >> 24) & 0x3f;
+		wc = ((data2 >> 16) & 0xff) + (data2 & 0xff00);
+		prefix = (data1 >> 16) & 0xffff;
+		if (cmd == 0x1a && wc == 6 && prefix == 0x203) {
+			pr_err("Panel dsi error detected in aux.");
+			pr_err("dsi rdbk data: %08x %08x %08x \n", data2, data1, data);
+		}
+	}
+#endif
 	if (repeated_bytes) {
 		for (i = repeated_bytes; i < 16; i++)
 			rd_buf[j++] = reg[i];

@@ -1,0 +1,41 @@
+diff --git a/msm/dsi/iris/dsi_iris6_lightup.c b/msm/dsi/iris/dsi_iris6_lightup.c
+index e402615..e377957 100644
+--- a/msm/dsi/iris/dsi_iris6_lightup.c
++++ b/msm/dsi/iris/dsi_iris6_lightup.c
+@@ -3161,26 +3161,28 @@ int iris_enable(struct dsi_panel *panel, struct dsi_panel_cmd_set *on_cmds)
+ 
+ 			if (rc != 0) {
+ 				IRIS_LOGE("iris_lightup_exit_abyp failed.");
+-				continue;
++				//continue;
+ 			}
+ 
+ 			rc = iris_lightup(panel, NULL);
+ 			if (rc != 0) {
+ 				IRIS_LOGE("iris_lightup failed.");
+-				continue;
++				rc = 0;
++				break;
+ 			}
+ 
+ 			if ((lightup_opt & 0x10) == 0x10 || iris_platform_get() == 0) {
+ 				/* FPGA platform or pcfg->iris_default_mode_pt */
+ 				break;
+ 			}
++			if (0) {
++				rc = iris_abyp_switch_proc(pcfg->display, IRIS_ABYP_MODE, true);
++				if (rc == 0) {
++					break;
++				}
+ 
+-			rc = iris_abyp_switch_proc(pcfg->display, IRIS_ABYP_MODE, true);
+-			if (rc == 0) {
+-				break;
+-			}
+-
+-			IRIS_LOGE("enter abyp failed.");
++				IRIS_LOGE("enter abyp failed.");
++			}			
+ 		}
+ 	}
+ 

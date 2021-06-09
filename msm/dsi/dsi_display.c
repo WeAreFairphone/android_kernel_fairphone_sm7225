@@ -20,6 +20,14 @@
 #include "dsi_pwr.h"
 #include "sde_dbg.h"
 #include "dsi_parser.h"
+#if defined(CONFIG_PXLW_IRIS)
+#include "iris/dsi_iris6_api.h"
+#include "iris/dsi_iris6_log.h"
+#include "iris/dsi_iris6_lp.h"
+#include "iris/dsi_iris6_lightup.h"
+#include <video/mipi_display.h>
+extern u8 panel_mcf_data[512];
+#endif
 
 #ifdef CONFIG_TOUCHSCREEN_FTS
 extern int fts_esd_check(void);
@@ -486,7 +494,11 @@ static int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
 	struct dsi_display_ctrl *display_ctrl;
 
 	display->tx_cmd_buf = msm_gem_new(display->drm_dev,
+#if defined(CONFIG_PXLW_IRIS)
+			SZ_256K,
+#else
 			SZ_4K,
+#endif
 			MSM_BO_UNCACHED);
 
 	if ((display->tx_cmd_buf) == NULL) {
@@ -495,7 +507,11 @@ static int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
 		goto error;
 	}
 
+#if defined(CONFIG_PXLW_IRIS)
+	display->cmd_buffer_size = SZ_256K;
+#else
 	display->cmd_buffer_size = SZ_4K;
+#endif
 
 	display->aspace = msm_gem_smmu_address_space_get(
 			display->drm_dev, MSM_SMMU_DOMAIN_UNSECURE);
@@ -529,7 +545,11 @@ static int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
 
 	display_for_each_ctrl(cnt, display) {
 		display_ctrl = &display->ctrl[cnt];
+#if defined(CONFIG_PXLW_IRIS)
+		display_ctrl->ctrl->cmd_buffer_size = SZ_256K;
+#else
 		display_ctrl->ctrl->cmd_buffer_size = SZ_4K;
+#endif
 		display_ctrl->ctrl->cmd_buffer_iova =
 					display->cmd_buffer_iova;
 		display_ctrl->ctrl->vaddr = display->vaddr;
@@ -682,6 +702,11 @@ static int dsi_display_validate_status(struct dsi_display_ctrl *ctrl,
 {
 	int rc = 0;
 
+#if defined(CONFIG_PXLW_IRIS)
+	rc = iris_status_get(ctrl, panel);
+	return rc;
+#endif
+
 	rc = dsi_display_read_status(ctrl, panel);
 	if (rc <= 0) {
 		goto exit;
@@ -767,6 +792,15 @@ static int dsi_display_status_check_te(struct dsi_display *display)
 	int rc = 1;
 	int const esd_te_timeout = msecs_to_jiffies(3*20);
 
+#if defined(CONFIG_PXLW_IRIS)
+	struct dsi_display_ctrl *ctrl;
+
+	ctrl = &display->ctrl[display->cmd_master_idx];
+	rc = iris_status_get(ctrl, display->panel);
+	if (rc < 0)
+		return rc;
+#endif
+
 	dsi_display_change_te_irq_status(display, true);
 
 	reinit_completion(&display->esd_te_gate);
@@ -835,6 +869,10 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 	dsi_display_set_ctrl_esd_check_flag(dsi_display, true);
 	dsi_display_mask_ctrl_error_interrupts(dsi_display, mask, true);
 
+#if defined(CONFIG_PXLW_IRIS)
+	iris_dma_ch1_trigger(false, 0);
+#endif
+
 	if (status_mode == ESD_MODE_REG_READ) {
 		rc = dsi_display_status_reg_read(dsi_display);
 	} else if (status_mode == ESD_MODE_SW_BTA) {
@@ -849,6 +887,10 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 		DSI_WARN("Unsupported check status mode: %d\n", status_mode);
 		panel->esd_config.esd_enabled = false;
 	}
+
+#if defined(CONFIG_PXLW_IRIS)
+	iris_dma_ch1_trigger(true, 0);
+#endif
 
 	/* Unmask error interrupts if check passed*/
 	if (rc > 0) {
@@ -1537,6 +1579,276 @@ static const struct file_operations esd_check_mode_fops = {
 	.read = debugfs_read_esd_check_mode,
 };
 
+#if defined(CONFIG_PXLW_IRIS)
+static int panel_debug_base_open(struct inode *inode, struct file *file)
+{
+	/* non-seekable */
+	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static int panel_debug_base_release(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+#define PANEL_REG_MAX_OFFSET 1024 // FIXME
+
+static ssize_t panel_debug_base_offset_write(struct file *file,
+		    const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct dsi_display *display = file->private_data;
+	u32 off, cnt;
+	char buf[64];
+
+	if (!display)
+		return -ENODEV;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0;	/* end of string */
+
+	if (sscanf(buf, "%x %u", &off, &cnt) != 2)
+		return -EINVAL;
+
+	if (off > PANEL_REG_MAX_OFFSET)
+		return -EINVAL;
+
+	if (cnt > (PANEL_REG_MAX_OFFSET - off))
+		cnt = PANEL_REG_MAX_OFFSET - off;
+
+	display->off = off;
+	display->cnt = cnt;
+
+	pr_debug("offset=%x cnt=%d\n", off, cnt);
+
+	return count;
+}
+
+static ssize_t panel_debug_base_offset_read(struct file *file,
+			char __user *buff, size_t count, loff_t *ppos)
+{
+	struct dsi_display *display = file->private_data;
+	int len;
+	char buf[64];
+
+	if (!display)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;	/* the end */
+
+	len = snprintf(buf, sizeof(buf), "0x%02x %x\n", display->off, display->cnt);
+
+	if (len < 0 || len >= sizeof(buf))
+		return -EINVAL;
+
+	if (count < sizeof(buf))
+		return -EINVAL;
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;	/* increase offset */
+	return len;
+}
+
+/* Hex number + whitespace */
+#define NEXT_VALUE_OFFSET 3
+
+#define PANEL_CMD_MIN_TX_COUNT 2
+
+
+static ssize_t panel_debug_base_reg_write(struct file *file,
+		const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct dsi_display *display = file->private_data;
+	char buf[64];
+	char reg[64];
+	u32 len = 0, value = 0;
+	char *bufp;
+	bool state = false;
+	int rc;
+
+	struct dsi_cmd_desc cmds = {
+		{ 0 },	// msg
+		1,	// last
+		0	// wait
+	};
+#ifndef IRIS_ABYP_LIGHTUP
+	struct dsi_panel_cmd_set cmdset = {
+		.state = DSI_CMD_SET_STATE_HS,
+		.count = 1,
+		.cmds = &cmds,
+	};
+#endif
+
+	if (!display)
+		return -ENODEV;
+
+	/* get command string from user */
+	if (count >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0;	/* end of string */
+
+	bufp = buf;
+	/* End of a hex value in given string */
+	bufp[NEXT_VALUE_OFFSET - 1] = 0;
+	while (kstrtouint(bufp, 16, &value) == 0) {
+		reg[len++] = value;
+		if (len >= sizeof(reg)) {
+			pr_err("wrong input reg len\n");
+			return -EINVAL;
+		}
+		bufp += NEXT_VALUE_OFFSET;
+		if ((bufp >= (buf + count)) || (bufp < buf)) {
+			pr_warn("%s,buffer out-of-bounds\n", __func__);
+			break;
+		}
+		/* End of a hex value in given string */
+		if ((bufp + NEXT_VALUE_OFFSET - 1) < (buf + count))
+			bufp[NEXT_VALUE_OFFSET - 1] = 0;
+	}
+	if (len < PANEL_CMD_MIN_TX_COUNT) {
+		pr_err("wrong input reg len\n");
+		return -EINVAL;
+	}
+
+	cmds.msg.type = display->cmd_data_type;
+	cmds.msg.flags = MIPI_DSI_MSG_LASTCOMMAND;
+	cmds.msg.tx_len = len;
+	cmds.msg.tx_buf = reg;
+
+	rc = dsi_display_ctrl_get_host_init_state(display, &state);
+	if (!rc && state) {
+		dsi_panel_acquire_panel_lock(display->panel);
+#ifdef IRIS_ABYP_LIGHTUP
+		rc = display->host.ops->transfer(&display->host, &cmds.msg);
+#else
+		iris_pt_send_panel_cmd(display->panel, &cmdset);
+#endif
+		dsi_panel_release_panel_lock(display->panel);
+	}
+
+	return rc ? rc : count;
+}
+
+#define PANEL_REG_ADDR_LEN 8
+#define PANEL_REG_FORMAT_LEN 5
+
+static ssize_t panel_debug_base_reg_read(struct file *file,
+			char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct dsi_display *display = file->private_data;
+	u32 i, len = 0, reg_buf_len = 0;
+	char *panel_reg_buf, *rx_buf;
+	int rc;
+	bool state = false;
+	char panel_reg[2] = { 0 };
+	struct dsi_cmd_desc cmds = {
+		{ 0 },	// msg
+		1,	// last
+		0	// wait
+	};
+#ifndef IRIS_ABYP_LIGHTUP
+	struct dsi_panel_cmd_set cmdset = {
+		.state = DSI_CMD_SET_STATE_HS,
+		.count = 1,
+		.cmds = &cmds,
+	};
+#endif
+
+	if (!display)
+		return -ENODEV;
+	if (!display->cnt)
+		return 0;
+	if (*ppos)
+		return 0;	/* the end */
+
+	/* '0x' + 2 digit + blank = 5 bytes for each number */
+	reg_buf_len = (display->cnt * PANEL_REG_FORMAT_LEN)
+		    + PANEL_REG_ADDR_LEN + 1;
+	if (count < reg_buf_len)
+		return -EINVAL;
+
+	rx_buf = kzalloc(display->cnt, GFP_KERNEL);
+	panel_reg_buf = kzalloc(reg_buf_len, GFP_KERNEL);
+
+	if (!rx_buf || !panel_reg_buf) {
+		pr_err("not enough memory to hold panel reg dump\n");
+		rc = -ENOMEM;
+		goto read_reg_fail;
+	}
+
+	panel_reg[0] = display->off;
+
+	cmds.msg.type = MIPI_DSI_DCS_READ;
+	cmds.msg.flags = MIPI_DSI_MSG_LASTCOMMAND | MIPI_DSI_MSG_REQ_ACK;
+	cmds.msg.tx_len = 2;
+	cmds.msg.tx_buf = panel_reg;
+	cmds.msg.rx_len = display->cnt;
+	cmds.msg.rx_buf = rx_buf;
+
+	rc = dsi_display_ctrl_get_host_init_state(display, &state);
+	if (!rc && state) {
+		dsi_panel_acquire_panel_lock(display->panel);
+#ifdef IRIS_ABYP_LIGHTUP
+		rc = display->host.ops->transfer(&display->host, &cmds.msg);
+#else
+		iris_pt_send_panel_cmd(display->panel, &cmdset);
+#endif
+		dsi_panel_release_panel_lock(display->panel);
+	}
+
+	if (rc)
+		goto read_reg_fail;
+
+	len = scnprintf(panel_reg_buf, reg_buf_len, "0x%02x: ", display->off);
+
+	for (i = 0; (len < reg_buf_len) && (i < display->cnt); i++)
+		len += scnprintf(panel_reg_buf + len, reg_buf_len - len,
+				"0x%02x ", rx_buf[i]);
+
+	if (len)
+		panel_reg_buf[len - 1] = '\n';
+
+	if (copy_to_user(user_buf, panel_reg_buf, len)) {
+		rc = -EFAULT;
+		goto read_reg_fail;
+	}
+
+	*ppos += len;	/* increase offset */
+	rc = len;
+
+read_reg_fail:
+	kfree(rx_buf);
+	kfree(panel_reg_buf);
+	return rc;
+}
+
+static const struct file_operations panel_off_fops = {
+	.open = panel_debug_base_open,
+	.release = panel_debug_base_release,
+	.read = panel_debug_base_offset_read,
+	.write = panel_debug_base_offset_write,
+};
+
+static const struct file_operations panel_reg_fops = {
+	.open = panel_debug_base_open,
+	.release = panel_debug_base_release,
+	.read = panel_debug_base_reg_read,
+	.write = panel_debug_base_reg_write,
+};
+#endif
+
 static int dsi_display_debugfs_init(struct dsi_display *display)
 {
 	int rc = 0;
@@ -1656,6 +1968,35 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 		       display->name);
 		goto error_remove_dir;
 	}
+
+#if defined(CONFIG_PXLW_IRIS)
+	display->off = 0x0a;
+	display->cnt = 1;
+	display->cmd_data_type = MIPI_DSI_DCS_LONG_WRITE;
+
+	dump_file = debugfs_create_x8("cmd_data_type", 0600, dir, &display->cmd_data_type);
+	if (IS_ERR_OR_NULL(dump_file))
+		pr_err("[%s] debugfs create panel cmd_data_type file failed, rc=%ld\n",
+			display->name, PTR_ERR(dump_file));
+
+	dump_file = debugfs_create_file("off",
+								0600,
+								dir,
+								display,
+								&panel_off_fops);
+	if (IS_ERR_OR_NULL(dump_file))
+		pr_err("[%s] debugfs create panel off file failed, rc=%ld\n",
+					display->name, PTR_ERR(dump_file));
+
+	dump_file = debugfs_create_file("reg",
+								0600,
+								dir,
+								display,
+								&panel_reg_fops);
+	if (IS_ERR_OR_NULL(dump_file))
+		pr_err("[%s] debugfs create panel reg file failed, rc=%ld\n",
+					display->name, PTR_ERR(dump_file));
+#endif
 
 	display->root = dir;
 	dsi_parser_dbg_init(display->parser, dir);
@@ -2948,9 +3289,18 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				msg->flags & MIPI_DSI_MSG_ASYNC_OVERRIDE)
 			cmd_flags |= DSI_CTRL_CMD_ASYNC_WAIT;
 
+#if defined(CONFIG_PXLW_IRIS)
+		if (msg->rx_buf && msg->rx_len)
+			cmd_flags |= DSI_CTRL_CMD_READ;
+#endif
+
 		rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg,
 				&cmd_flags);
+#if defined(CONFIG_PXLW_IRIS)
+		if (rc < 0) {
+#else
 		if (rc) {
+#endif
 			DSI_ERR("[%s] cmd transfer failed, rc=%d\n",
 			       display->name, rc);
 			goto error_disable_cmd_engine;
@@ -3821,6 +4171,11 @@ static int dsi_display_res_init(struct dsi_display *display)
 		phy->cfg.phy_type =
 			display->panel->host_config.phy_type;
 	}
+
+#if defined(CONFIG_PXLW_IRIS)
+	iris_parse_param(display->panel_node, display->panel);
+	iris_init(display, display->panel);
+#endif
 
 	rc = dsi_display_parse_lane_map(display);
 	if (rc) {
@@ -4976,6 +5331,115 @@ static int dsi_display_force_update_dsi_clk(struct dsi_display *display)
 	return rc;
 }
 
+static ssize_t sysfs_dsi_lcd_otp_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+
+	int i, rc = 0, count = 0, start = 0, *lenp,len = 0;
+	struct drm_panel_otp_config *config;
+	struct dsi_cmd_desc *cmds;
+	u32 flags = 0;
+	struct dsi_display *display;
+	struct dsi_display_ctrl *ctrl;
+	struct dsi_panel *panel;
+	u8 * temp_p;
+
+	pr_info("Start transfer read otp cmd\n");
+
+	display = dev_get_drvdata(dev);
+	if (!display) {
+		pr_err("Invalid display\n");
+		return 0;
+	}
+
+	ctrl = &display->ctrl[display->cmd_master_idx];
+	panel = display->panel;
+
+	if (!panel || !ctrl || !ctrl->ctrl)
+		return 0;
+
+	if (!dsi_ctrl_validate_host_state(ctrl->ctrl))
+		return 0;
+
+	rc = dsi_display_cmd_engine_enable(display);
+	if (rc) {
+		pr_err("[%s] failed to enable cmd engine, rc=%d\n",
+		       display->name, rc);
+		return 0;
+	}
+
+	config = &(panel->otp_config);
+	lenp = config->status_cmds_rlen;
+	count = config->otp_cmd.count;
+	cmds = config->otp_cmd.cmds;
+	flags |= (DSI_CTRL_CMD_FETCH_MEMORY | DSI_CTRL_CMD_READ |
+		  DSI_CTRL_CMD_CUSTOM_DMA_SCHED);
+
+	pr_info("read otp cmd count = %d , \n",count); // MODIFIED by hongwei.tian, 2019-06-06,BUG-7808648
+
+	for (i = 0; i < count; ++i) {
+		memset(config->status_buf, 0x0, SZ_1K);
+		if (cmds[i].last_command) {
+			cmds[i].msg.flags |= MIPI_DSI_MSG_LASTCOMMAND;
+			flags |= DSI_CTRL_CMD_LAST_COMMAND;
+		}
+		if (config->otp_cmd.state == DSI_CMD_SET_STATE_LP)
+			cmds[i].msg.flags |= MIPI_DSI_MSG_USE_LPM;
+		cmds[i].msg.rx_buf = config->status_buf;
+		cmds[i].msg.rx_len = config->status_cmds_rlen[i];
+		rc = dsi_ctrl_cmd_transfer(ctrl->ctrl, &cmds[i].msg, &flags);
+		if (rc <= 0) {
+			pr_err("rx cmd transfer failed rc=%d\n", rc);
+			return 0;
+		}
+		temp_p = config->status_buf;
+		for (start = 0; start < lenp[i]; start++)
+		{
+			len += snprintf((buf+len), PAGE_SIZE, "%2x ", *temp_p);
+			temp_p ++;
+		}
+
+		len += snprintf((buf+len), PAGE_SIZE, "\n");
+	}
+	dsi_display_cmd_engine_disable(display);
+	return len;
+}
+
+static DEVICE_ATTR(lcd_otp_data, S_IRUGO,
+			sysfs_dsi_lcd_otp_read,
+			NULL);
+
+static struct attribute *lcd_otp_data_fs_attrs[] = {
+	&dev_attr_lcd_otp_data.attr,
+	NULL,
+};
+static struct attribute_group lcd_otp_data_fs_attrs_group = {
+	.attrs = lcd_otp_data_fs_attrs,
+};
+
+static ssize_t sysfs_fp4_dsi_lcd_otp_read(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int i, len = 0;
+
+	for (i = 0; i <= 256; i++)
+		len += snprintf((buf+len), PAGE_SIZE, "%x ", panel_mcf_data[i]);
+
+	len += snprintf((buf+len), PAGE_SIZE, "\n");
+
+	return len;
+}
+
+static DEVICE_ATTR(fp4_lcd_otp_data, S_IRUGO, sysfs_fp4_dsi_lcd_otp_read, NULL);
+
+static struct attribute *fp4_display_fs_attrs[] = {
+	&dev_attr_fp4_lcd_otp_data.attr,
+	NULL,
+};
+static struct attribute_group fp4_display_fs_attrs_group = {
+	.attrs = fp4_display_fs_attrs,
+};
+
 static int dsi_display_validate_split_link(struct dsi_display *display)
 {
 	int i, rc = 0;
@@ -5010,6 +5474,33 @@ static int dsi_display_validate_split_link(struct dsi_display *display)
 error:
 	host->split_link.split_link_enabled = false;
 	return rc;
+}
+
+static int dsi_display_sysfs_init(struct dsi_display *display)
+{
+	int rc = 0;
+	struct device *dev = &display->pdev->dev;
+
+	if (display->panel->otp_config.otp_enabled)
+		rc = sysfs_create_group(&dev->kobj,
+			&lcd_otp_data_fs_attrs_group);
+
+	rc = sysfs_create_group(&dev->kobj, &fp4_display_fs_attrs_group);
+	return rc;
+}
+
+static int dsi_display_sysfs_deinit(struct dsi_display *display)
+{
+	struct device *dev = &display->pdev->dev;
+
+	if (display->panel->otp_config.otp_enabled)
+		sysfs_remove_group(&dev->kobj,
+			&lcd_otp_data_fs_attrs_group);
+
+	sysfs_remove_group(&dev->kobj, &fp4_display_fs_attrs_group);
+
+	return 0;
+
 }
 
 /**
@@ -5082,6 +5573,12 @@ static int dsi_display_bind(struct device *dev,
 
 	atomic_set(&display->clkrate_change_pending, 0);
 	display->cached_clk_rate = 0;
+
+	rc = dsi_display_sysfs_init(display);
+	if (rc) {
+		pr_err("[%s] sysfs init failed, rc=%d\n", display->name, rc);
+		goto error;
+	}
 
 	memset(&info, 0x0, sizeof(info));
 
@@ -5232,6 +5729,7 @@ error_ctrl_deinit:
 		(void)dsi_phy_drv_deinit(display_ctrl->phy);
 		(void)dsi_ctrl_drv_deinit(display_ctrl->ctrl);
 	}
+	(void)dsi_display_sysfs_deinit(display);
 	(void)dsi_display_debugfs_deinit(display);
 error:
 	mutex_unlock(&display->display_lock);
@@ -5292,6 +5790,7 @@ static void dsi_display_unbind(struct device *dev,
 	}
 
 	atomic_set(&display->clkrate_change_pending, 0);
+	(void)dsi_display_sysfs_deinit(display);
 	(void)dsi_display_debugfs_deinit(display);
 
 	mutex_unlock(&display->display_lock);
@@ -5470,6 +5969,10 @@ int dsi_display_dev_remove(struct platform_device *pdev)
 	}
 
 	display = platform_get_drvdata(pdev);
+
+#if defined(CONFIG_PXLW_IRIS)
+	iris_deinit();
+#endif
 
 	/* decrement ref count */
 	of_node_put(display->panel_node);
@@ -7309,6 +7812,10 @@ error_panel_post_unprep:
 error:
 	mutex_unlock(&display->display_lock);
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
+#if defined(CONFIG_PXLW_IRIS)
+	iris_prepare();
+#endif
+
 	return rc;
 }
 
@@ -7596,7 +8103,10 @@ int dsi_display_enable(struct dsi_display *display)
 	if (display->is_cont_splash_enabled) {
 
 		dsi_display_config_ctrl_for_cont_splash(display);
-
+#if defined(CONFIG_PXLW_IRIS)
+		//iris_send_cont_splash(IRIS_CONT_SPLASH_KERNEL);
+		iris_send_cont_splash(IRIS_CONT_SPLASH_VIDEO_BYPASS);
+#endif
 		rc = dsi_display_splash_res_cleanup(display);
 		if (rc) {
 			DSI_ERR("Continuous splash res cleanup failed, rc=%d\n",

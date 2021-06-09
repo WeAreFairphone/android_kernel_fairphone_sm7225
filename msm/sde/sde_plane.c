@@ -36,6 +36,9 @@
 #include "sde_vbif.h"
 #include "sde_plane.h"
 #include "sde_color_processing.h"
+#if defined(CONFIG_PXLW_IRIS)
+#include "iris/dsi_iris6_api.h"
+#endif
 
 #define SDE_DEBUG_PLANE(pl, fmt, ...) SDE_DEBUG("plane%d " fmt,\
 		(pl) ? (pl)->base.base.id : -1, ##__VA_ARGS__)
@@ -1115,6 +1118,33 @@ static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 		{ 0x40, 0x3ac, 0x40, 0x3c0, 0x40, 0x3c0,},
 		{ 0x00, 0x3ff, 0x00, 0x3ff, 0x00, 0x3ff,},
 	};
+#if defined(CONFIG_PXLW_IRIS)
+	static const struct sde_csc_cfg hdrYUV = {
+		{
+			0x00010000, 0x00000000, 0x00000000,
+			0x00000000, 0x00010000, 0x00000000,
+			0x00000000, 0x00000000, 0x00010000,
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+	};
+	static const struct sde_csc_cfg hdrRGB10 = {
+		/* S15.16 format */
+		{
+			0x00012A15, 0x00000000, 0x0001ADBE,
+			0x00012A15, 0xFFFFD00B, 0xFFFF597E,
+			0x00012A15, 0x0002244B, 0x00000000,
+		},
+		/* signed bias */
+		{ 0xffc0, 0xfe00, 0xfe00,},
+		{ 0x0, 0x0, 0x0,},
+		/* unsigned clamp */
+		{ 0x40, 0x3ac, 0x40, 0x3c0, 0x40, 0x3c0,},
+		{ 0x00, 0x3ff, 0x00, 0x3ff, 0x00, 0x3ff,},
+	};
+#endif
 
 	if (!psde) {
 		SDE_ERROR("invalid plane\n");
@@ -1128,6 +1158,13 @@ static inline void _sde_plane_setup_csc(struct sde_plane *psde)
 		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc10_YUV2RGB_601L;
 	else
 		psde->csc_ptr = (struct sde_csc_cfg *)&sde_csc_YUV2RGB_601L;
+
+#if defined(CONFIG_PXLW_IRIS)
+	if (iris_hdr_enable_get() == 1)
+		psde->csc_ptr = (struct sde_csc_cfg *)&hdrYUV;
+	else if (iris_hdr_enable_get() == 2)
+		psde->csc_ptr = (struct sde_csc_cfg *)&hdrRGB10;
+#endif
 
 	SDE_DEBUG_PLANE(psde, "using 0x%X 0x%X 0x%X...\n",
 			psde->csc_ptr->csc_mv[0],
