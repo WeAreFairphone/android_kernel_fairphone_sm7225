@@ -3140,10 +3140,10 @@ int iris_enable(struct dsi_panel *panel, struct dsi_panel_cmd_set *on_cmds)
 	int lightup_opt = iris_lightup_opt_get();
 	u32 regs[] = {0xf1100808, 0xf1100818, 0xf1100a00, 0xf1100034, 0xf1100204};
 
-	//we use PATH_I2C as the first path for pq update until panel on/off
-	pcfg->pq_update_path = PATH_DSI;
-
 	__iris_cont_splash_video_path_check(pcfg);
+ 
+ //set pcfg->pq_update_is_dsi_hs to 1 after panel on/off
+  pcfg->pq_update_is_dsi_hs = 1;
 
 	IRIS_LOGI("%s(), lightup opt: 0x%x", __func__, lightup_opt);
 
@@ -3330,9 +3330,17 @@ static int _iris_cont_splash_video_lightup_thread_main(void *data)
 	}
 	__iris_cont_splash_video_path_check(pcfg);
 
-        //we use PATH_I2C as the first path for pq update until panel on/off
-        pcfg->pq_update_path = PATH_I2C;
+#if 0
+  //we use PATH_I2C as the first path for pq update until panel on/off
+  pcfg->light_up_path = PATH_I2C;
+  pcfg->pq_update_path = PATH_I2C;
+  pcfg->single_ipopt_path = PATH_I2C;
+  pcfg->path_backup_need_restore = 1;
+#endif
 
+  //set pcfg->pq_update_is_dsi_hs to 0 before panel on/off
+  pcfg->pq_update_is_dsi_hs = 0;
+ 
 	IRIS_LOGI("%s(%d) <<<<<<END<<<---", __func__, __LINE__);
 	return 0;
 }
