@@ -173,6 +173,11 @@ static int cam_ois_init_subdev_param(struct cam_ois_ctrl_t *o_ctrl)
 	return rc;
 }
 
+DEVICE_ATTR(ois_gyro_cali_data, 0664, ois_gyro_cali_data_show, ois_gyro_cali_data_store);
+DEVICE_ATTR(ois_position_data, 0664, ois_position_data_show, ois_position_data_store);
+DEVICE_ATTR(ois_status, 0664, ois_status_show, ois_status_store);
+
+
 static int cam_ois_i2c_driver_probe(struct i2c_client *client,
 	 const struct i2c_device_id *id)
 {
@@ -319,6 +324,13 @@ static int32_t cam_ois_platform_driver_probe(
 	if (rc)
 		goto free_soc;
 
+	if ((device_create_file(&pdev->dev, &dev_attr_ois_gyro_cali_data)) ||
+		(device_create_file(&pdev->dev, &dev_attr_ois_position_data))  ||
+		(device_create_file(&pdev->dev, &dev_attr_ois_status)))
+	{
+		CAM_ERR(CAM_OIS, "creat ois device_create_file failed rc=%d", rc);
+	}
+
 	rc = cam_ois_update_i2c_info(o_ctrl, &soc_private->i2c_info);
 	if (rc) {
 		CAM_ERR(CAM_OIS, "failed: to update i2c info rc %d", rc);
@@ -356,6 +368,11 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	device_remove_file(&pdev->dev, &dev_attr_ois_gyro_cali_data);
+	device_remove_file(&pdev->dev, &dev_attr_ois_status);
+	device_remove_file(&pdev->dev, &dev_attr_ois_position_data);
+	CAM_ERR(CAM_OIS, " device_remove_file node");
+	
 	CAM_INFO(CAM_OIS, "platform driver remove invoked");
 	soc_info = &o_ctrl->soc_info;
 	for (i = 0; i < soc_info->num_clk; i++)
