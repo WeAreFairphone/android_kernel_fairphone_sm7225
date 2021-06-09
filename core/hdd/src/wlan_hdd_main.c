@@ -1987,6 +1987,124 @@ static void hdd_update_tgt_vht_cap(struct hdd_context *hdd_ctx,
 	band_5g->vht_cap.vht_mcs.tx_highest = cpu_to_le16(tx_highest_data_rate);
 }
 
+//add-begin by t2m.xiaozhan.gan,get wifi mac address
+#define MAC_LEN		6
+#define MAC_STR_LEN	17
+#define MAC_CHAR_NUM	2
+#define CMDLINE "/proc/cmdline"
+#define CMDLINE_LEN 1500
+static inline int is_in_range(unsigned char c,
+		unsigned char low, unsigned char high)
+{
+	if((c > high) || (c < low)){
+		return 0;
+	}else{
+		return 1;
+	}
+}
+
+//convert a hex string to long integer.
+static int hex_strtol(const char *p)
+{
+	int i;
+	int acc = 0;
+	unsigned char c;
+
+	for(i=0; i<MAC_CHAR_NUM; i++){
+		c = (unsigned char)(p[i]);
+		if (is_in_range(c, '0', '9'))
+			c -= '0';
+		else if (is_in_range(c, 'a', 'f'))
+			c -= ('a' - 10);
+		else if (is_in_range(c, 'A', 'F'))
+			c -= ('A' - 10);
+		else
+			break;
+
+		acc = (acc << 4) + c;
+	}
+
+	return acc;
+}
+
+static int str2wa(const char *str, unsigned char *wa)
+{
+	unsigned char tmp[6];
+	int l;
+	const char *ptr = str;
+	int i;
+	int result = 0;
+
+	for (i = 0; i < MAC_LEN; i++) {
+		l = hex_strtol(ptr);
+		if((l > 255) || (l < 0)){
+			result = -1;
+			break;
+		}
+
+		tmp[i] = (unsigned char)l;
+
+		if(i == MAC_LEN - 1){
+			break; //done
+		}
+
+		ptr = strchr(ptr, ':');
+		if(ptr == NULL){
+			result = -1;
+			break;
+		}
+		ptr++;
+	}
+
+	if(result == 0){
+		memcpy((char *)wa, (char*)(&tmp), MAC_LEN);
+	}
+
+	return result;
+}
+
+static int jrd_get_mac_addr(unsigned char *eaddr)
+{
+	struct file *fp = NULL;
+	char fn[100] = {0};
+    char dp[CMDLINE_LEN + 1] = {0};
+	int  len;
+	char *wifimac_pos = NULL;
+	char WifiMac[MAC_STR_LEN + 1] = {0};
+	loff_t pos;
+	mm_segment_t old_fs;
+	//FIXME:hard code.
+	//Modify wifi mac address file location
+	strcpy(fn, CMDLINE);
+	fp = filp_open(fn, O_RDONLY, 0);
+	if(IS_ERR(fp)){
+		printk(KERN_INFO "Unable to open '%s'.\n", fn);
+		goto err_open;
+	}
+	pos = 0;
+	old_fs=get_fs();
+	set_fs(KERNEL_DS);
+    len=vfs_read(fp, dp, CMDLINE_LEN, &pos);
+	set_fs(old_fs);
+	wifimac_pos = strstr(dp, "WifiMac");
+	if (!wifimac_pos)
+	{
+		printk(KERN_INFO "Can't find wifimac\n'");
+		goto err_format;
+	}
+    strncpy(WifiMac, wifimac_pos+8, 17);
+	WifiMac[MAC_STR_LEN] = '\0';
+	str2wa(WifiMac, eaddr);
+	filp_close(fp, NULL);
+	return 0;
+
+err_format:
+	filp_close(fp, NULL);
+err_open:
+	return -1;
+} 
+//add-end
+
 /**
  * hdd_generate_macaddr_auto() - Auto-generate mac address
  * @hdd_ctx: Pointer to the HDD context
@@ -2004,7 +2122,10 @@ static int hdd_generate_macaddr_auto(struct hdd_context *hdd_ctx)
 	struct qdf_mac_addr mac_addr = {
 		{0x00, 0x0A, 0xF5, 0x00, 0x00, 0x00}
 	};
-
+//add-begin by t2m.xiaozhan.gan,get wifi mac address
+    int ret = 0;
+	unsigned char nv_mac[6];
+//add-end
 	serialno = pld_socinfo_get_serial_number(hdd_ctx->parent_dev);
 	if (serialno == 0)
 		return -EINVAL;
@@ -2014,6 +2135,19 @@ static int hdd_generate_macaddr_auto(struct hdd_context *hdd_ctx)
 	mac_addr.bytes[3] = (serialno >> 16) & 0xff;
 	mac_addr.bytes[4] = (serialno >> 8) & 0xff;
 	mac_addr.bytes[5] = serialno & 0xff;
+
+//add-begin by t2m.xiaozhan.gan,get wifi mac address
+    ret = jrd_get_mac_addr(nv_mac);
+    if ((ret==-1) || (nv_mac[0]==0x00 && nv_mac[1]==0x00 && nv_mac[2]==0x00));
+	else {
+          mac_addr.bytes[0] = nv_mac[0];
+		  mac_addr.bytes[1] = nv_mac[1];
+          mac_addr.bytes[2] = nv_mac[2];
+		  mac_addr.bytes[3] = nv_mac[3];
+		  mac_addr.bytes[4] = nv_mac[4];
+		  mac_addr.bytes[5] = nv_mac[5];
+        }   
+//add-end
 
 	hdd_update_macaddr(hdd_ctx, mac_addr, true);
 	return 0;
