@@ -1755,6 +1755,13 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_component *component,
 		goto err;
 	}
 
+#ifdef CONFIG_T2M_SND_FP4
+    hph_swh = 1;
+	gnd_swh = 0;
+    dev_dbg(card->dev,"%s:set msm-mbhc-hphl-swh %d in dt node\n", __func__, hph_swh);
+    dev_dbg(card->dev,"%s:set msm-mbhc-gnd-swh %d in dt node\n", __func__, gnd_swh);
+#endif
+
 	ret = of_property_read_u32(card->dev->of_node, hs_thre,
 				&(mbhc->hs_thr));
 	if (ret)
