@@ -8105,7 +8105,6 @@ int dsi_display_enable(struct dsi_display *display)
 		dsi_display_config_ctrl_for_cont_splash(display);
 #if defined(CONFIG_PXLW_IRIS)
 		//iris_send_cont_splash(IRIS_CONT_SPLASH_KERNEL);
-		iris_send_cont_splash(IRIS_CONT_SPLASH_VIDEO_BYPASS);
 #endif
 		rc = dsi_display_splash_res_cleanup(display);
 		if (rc) {
