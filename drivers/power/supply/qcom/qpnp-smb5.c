@@ -2972,9 +2972,19 @@ static int smb5_init_hw(struct smb5 *chip)
 			pr_err("Couldn't clear SDAM ADC status rc=%d\n", rc);
 	}
 
+
+/* zxz add for connect usb boot up, but the charge current is very low (is a negative value) ,
+the reason is because of the "proper_fcc"=0; in smb5_usb_main_set_prop 'POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX' ,
+batt_profile_fcc_ua =0 when boot up .
+*/
 	if (chip->dt.batt_profile_fcc_ua < 0)
 		smblib_get_charge_param(chg, &chg->param.fcc,
 				&chg->batt_profile_fcc_ua);
+	else{
+		if((chg->batt_profile_fcc_ua<0)||(chg->batt_profile_fcc_ua==0))
+			chg->batt_profile_fcc_ua= chip->dt.batt_profile_fcc_ua;
+		}
+
 
 #if defined(CONFIG_TCT_PM7250_COMMON)
 	chg->batt_profile_fv_uv = 4400000;
