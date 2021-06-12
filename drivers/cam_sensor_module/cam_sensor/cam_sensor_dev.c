@@ -398,6 +398,82 @@ static struct i2c_driver cam_sensor_driver_i2c = {
 	},
 };
 
+char main_camera_status[32] = {0};
+char aux_camera_status[32] = {0};
+char front_camera_status[32] = {0};
+
+static ssize_t main_camera_show (struct device* dev,
+    struct device_attribute *attr,
+    char *buf)
+{
+       return sprintf(buf, "%s\n", main_camera_status);
+}
+
+static DEVICE_ATTR(camera_main, S_IRUGO,
+    main_camera_show,
+    NULL);
+
+static ssize_t aux_camera_show (struct device* dev,
+    struct device_attribute *attr,
+    char *buf)
+{
+       return sprintf(buf, "%s\n", aux_camera_status);
+}
+
+static DEVICE_ATTR(camera_aux, S_IRUGO,
+    aux_camera_show,
+    NULL);
+
+static ssize_t front_camera_show (struct device* dev,
+    struct device_attribute *attr,
+    char *buf)
+{
+       return sprintf(buf, "%s\n", front_camera_status);
+}
+
+static DEVICE_ATTR(camera_front, S_IRUGO,
+    front_camera_show,
+    NULL);
+
+struct kobject *device_sensor_module_kobj = NULL;
+
+
+static int sensor_module_sysfs_init(void)
+{
+       int rc = 0;
+
+       device_sensor_module_kobj = kobject_create_and_add("sensor_module", NULL);
+       if (device_sensor_module_kobj == NULL) {
+               pr_err("kobject_creat_and_add(/sys/sensor_module/) failed!");
+               return -ENOMEM;
+       }
+
+       rc = sysfs_create_file(device_sensor_module_kobj,&dev_attr_camera_main.attr);
+       if (rc) {
+               pr_err("sysfs_creat_file(/sys/sensor_module/camera_main) failed!");
+               goto destroy_kobj;
+       }
+
+       rc = sysfs_create_file(device_sensor_module_kobj, &dev_attr_camera_aux.attr);
+       if (rc) {
+               pr_err("sysfs_create_file('/sys/sensor_module/camera_aux') failed");
+               goto destroy_kobj;
+       }
+
+       rc = sysfs_create_file(device_sensor_module_kobj, &dev_attr_camera_front.attr);
+       if (rc) {
+               pr_err("sysfs_create_file('/sys/sensor_module/camera_front') failed");
+               goto destroy_kobj;
+       }
+
+               return rc;
+
+       destroy_kobj:
+               kobject_put(device_sensor_module_kobj);
+               return rc;
+
+}
+
 static int __init cam_sensor_driver_init(void)
 {
 	int32_t rc = 0;
@@ -408,6 +484,8 @@ static int __init cam_sensor_driver_init(void)
 			rc);
 		return rc;
 	}
+
+	rc = sensor_module_sysfs_init();
 
 	rc = i2c_add_driver(&cam_sensor_driver_i2c);
 	if (rc)

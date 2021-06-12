@@ -710,6 +710,10 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
+extern char main_camera_status[32];
+extern char aux_camera_status[32];
+extern char front_camera_status[32];
+
 int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	void *arg)
 {
@@ -797,6 +801,24 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			s_ctrl->soc_info.index,
 			s_ctrl->sensordata->slave_info.sensor_slave_addr,
 			s_ctrl->sensordata->slave_info.sensor_id);
+
+		if (s_ctrl->soc_info.index == 0 && s_ctrl->sensordata->slave_info.sensor_id == 0x582)
+		{
+		       CAM_INFO(CAM_SENSOR, "match SONY_imx582_sma");
+		       snprintf(main_camera_status, sizeof(main_camera_status), "SONY_IMX582_SMA");
+		}
+
+		if (s_ctrl->soc_info.index == 2 && s_ctrl->sensordata->slave_info.sensor_id == 0x576)
+		{
+		       CAM_INFO(CAM_SENSOR, "match SONY_imx576");
+		       snprintf(front_camera_status, sizeof(front_camera_status), "SONY_IMX576");
+		}
+
+		if (s_ctrl->soc_info.index == 1 && s_ctrl->sensordata->slave_info.sensor_id == 0x582)
+		{
+		       CAM_INFO(CAM_SENSOR, "match SONY_imx582_UW");
+		       snprintf(aux_camera_status, sizeof(aux_camera_status), "SONY_IMX582_UW");
+		}
 
 		rc = cam_sensor_power_down(s_ctrl);
 		if (rc < 0) {
