@@ -212,6 +212,7 @@ struct iris_cfg {
 	bool dport_is_disable;
 	uint32_t frame_kickoff_count[3]; /*0: kick count, 1: dport kick off count, 2: esd kick off count*/
 	uint8_t cont_splash_status;
+  uint8_t iris_isolate_status; /* will isolate iris when in recovery/power off charging/... modes*/
 };
 
 struct iris_data {

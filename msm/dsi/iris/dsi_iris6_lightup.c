@@ -1795,7 +1795,7 @@ int iris_parse_param(struct device_node *np, struct dsi_panel *panel)
 
 	pcfg->dsirecover_check_method = CHECK_WRITE_AND_READ; //CHECK_WRITE_AND_READ;
 	pcfg->dsirecover_check_path = PATH_I2C; //PATH_I2C;
-	pcfg->pq_update_is_dsi_hs = 1;
+	pcfg->pq_update_is_dsi_hs = 0; //1;
 
 	rc = _iris_parse_color_temp_range(lightup_node, pcfg);
 	if (rc) {
@@ -1964,7 +1964,14 @@ int iris_parse_param(struct device_node *np, struct dsi_panel *panel)
 
 	INIT_WORK(&pcfg->cont_splash_work, __iris_cont_splash_work_handler);
 
+  if (strnstr(saved_command_line, "androidboot.mode=", strlen(saved_command_line)) != NULL) {
+          IRIS_LOGI("%s(%d), saved_command_line: %s", __func__, __LINE__, saved_command_line);
+          pcfg->iris_isolate_status = 1;
+	pcfg->valid = PARAM_NONE;
+  } else {
+          pcfg->iris_isolate_status = 0;
 	pcfg->valid = PARAM_PARSED;
+  }
 	IRIS_LOGI("%s(%d), exit.", __func__, __LINE__);
 
 	return 0;
@@ -3071,6 +3078,9 @@ int iris_lightup(struct dsi_panel *panel, struct dsi_panel_cmd_set *on_cmds)
 		iris_get_abyp_mode_blocking() == IRIS_PT_MODE ? "PT" : "ABYP",
 		pcfg->cur_timing);
 
+ if (pcfg->iris_isolate_status == 1) {
+    return rc;
+ }
 	ktime0 = ktime_get();
 	iris_set_pinctrl_state(true);
 	_iris_pre_lightup(panel);
@@ -3142,8 +3152,8 @@ int iris_enable(struct dsi_panel *panel, struct dsi_panel_cmd_set *on_cmds)
 
 	__iris_cont_splash_video_path_check(pcfg);
  
- //set pcfg->pq_update_is_dsi_hs to 1 after panel on/off
-  pcfg->pq_update_is_dsi_hs = 1;
+ 	//set pcfg->pq_update_is_dsi_hs to 1 after panel on/off
+  	pcfg->pq_update_is_dsi_hs = 1;
 
 	IRIS_LOGI("%s(), lightup opt: 0x%x", __func__, lightup_opt);
 
@@ -3196,6 +3206,8 @@ int iris_enable(struct dsi_panel *panel, struct dsi_panel_cmd_set *on_cmds)
 
 int iris_disable(struct dsi_panel *panel, struct dsi_panel_cmd_set *off_cmds)
 {
+	struct iris_cfg *pcfg = iris_get_cfg();
+	pcfg->pq_update_is_dsi_hs = 1;
 	return iris_lightoff(panel, off_cmds);
 }
 
@@ -3331,15 +3343,15 @@ static int _iris_cont_splash_video_lightup_thread_main(void *data)
 	__iris_cont_splash_video_path_check(pcfg);
 
 #if 0
-  //we use PATH_I2C as the first path for pq update until panel on/off
-  pcfg->light_up_path = PATH_I2C;
-  pcfg->pq_update_path = PATH_I2C;
-  pcfg->single_ipopt_path = PATH_I2C;
-  pcfg->path_backup_need_restore = 1;
+  	//we use PATH_I2C as the first path for pq update until panel on/off
+  	pcfg->light_up_path = PATH_I2C;
+  	pcfg->pq_update_path = PATH_I2C;
+  	pcfg->single_ipopt_path = PATH_I2C;
+  	pcfg->path_backup_need_restore = 1;
 #endif
 
-  //set pcfg->pq_update_is_dsi_hs to 0 before panel on/off
-  pcfg->pq_update_is_dsi_hs = 0;
+  	//set pcfg->pq_update_is_dsi_hs to 0 before panel on/off
+  	pcfg->pq_update_is_dsi_hs = 0;
  
 	IRIS_LOGI("%s(%d) <<<<<<END<<<---", __func__, __LINE__);
 	return 0;
@@ -3405,6 +3417,12 @@ void iris_send_cont_splash(uint32_t type)
 
 	if (iris_get_abyp_mode_blocking() == IRIS_ABYP_MODE)
 		return;
+
+  if (pcfg->iris_isolate_status == 1) {
+    pcfg->dsirecover_check_method = CHECK_NONE;
+    pcfg->lp_ctrl.esd_ctrl = 0;
+    return;
+  }
 
 	mutex_lock(&pcfg->panel->panel_lock);
 	_iris_send_cont_splash_pkt(type);
