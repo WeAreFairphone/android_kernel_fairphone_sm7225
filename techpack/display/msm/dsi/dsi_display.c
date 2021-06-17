@@ -8103,9 +8103,6 @@ int dsi_display_enable(struct dsi_display *display)
 	if (display->is_cont_splash_enabled) {
 
 		dsi_display_config_ctrl_for_cont_splash(display);
-#if defined(CONFIG_PXLW_IRIS)
-		//iris_send_cont_splash(IRIS_CONT_SPLASH_KERNEL);
-#endif
 		rc = dsi_display_splash_res_cleanup(display);
 		if (rc) {
 			DSI_ERR("Continuous splash res cleanup failed, rc=%d\n",
@@ -8114,6 +8111,9 @@ int dsi_display_enable(struct dsi_display *display)
 		}
 
 		display->panel->panel_initialized = true;
+#if defined(CONFIG_PXLW_IRIS)
+    iris_send_cont_splash(IRIS_CONT_SPLASH_VIDEO_BYPASS);
+#endif
 		DSI_DEBUG("cont splash enabled, display enable not required\n");
 		return 0;
 	}
