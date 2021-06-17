@@ -108,6 +108,10 @@ static int32_t _iris_request_firmware(const struct firmware **fw,
 		IRIS_LOGE("%s(), firmware is null", __func__);
 		return -EINVAL;
 	}
+ 
+  if (pcfg->iris_isolate_status == 1) {
+    return -EINVAL;
+  }
 
 	rc = request_firmware(fw, name, dev);
 	if (rc) {
