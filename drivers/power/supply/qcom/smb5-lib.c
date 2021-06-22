@@ -2346,10 +2346,10 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 		val->intval = POWER_SUPPLY_HEALTH_GOOD;
 
 #if defined(CONFIG_TCT_PM7250_COMMON)
-#define JEITA_HARD_COLD_TEMP (0)
+#define JEITA_HARD_COLD_TEMP (50)
 #define JEITA_SOFT_COLD_TEMP (100)
 #define JEITA_SOFT_HOT_TEMP (450)
-#define JEITA_HARD_HOT_TEMP (600)
+#define JEITA_HARD_HOT_TEMP (550)
 
 	rc = smblib_get_prop_from_bms(chg,
 				POWER_SUPPLY_PROP_TEMP, &pval);
