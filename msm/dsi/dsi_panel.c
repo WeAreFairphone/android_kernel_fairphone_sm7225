@@ -383,10 +383,6 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 		}
 	}
 
-#if defined(CONFIG_PXLW_IRIS)
-	iris_reset();
-#endif
-
 	if (r_config->count) {
 		rc = gpio_direction_output(r_config->reset_gpio,
 			r_config->sequence[0].level);
@@ -4175,6 +4171,7 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 	usleep_range(1*1000, 1*1000);
 	iris_clk_enable(true);
 	usleep_range(1*1000, 1*1000);
+	iris_reset();
 #endif
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_PRE_ON);
 	if (rc) {
