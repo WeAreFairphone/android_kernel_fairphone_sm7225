@@ -1239,7 +1239,7 @@ int iris_dbg_init_adb_type(struct dsi_display *display)
 }
 
 /* Iris log level definition, for 'dsi_iris6_log.h' */
-static int iris_log_level = 2;
+static int iris_log_level = 1;
 
 void iris_set_loglevel(int level)
 {
