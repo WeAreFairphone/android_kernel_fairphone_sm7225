@@ -3112,7 +3112,7 @@ static int smblib_update_thermal_readings(struct smb_charger *chg)
 #define DIE_TEMP_REG_H_THRESH		800
 #define DIE_TEMP_REG_L_THRESH		600
 
-#define CONNECTOR_TEMP_SHDN_THRESH	700
+#define CONNECTOR_TEMP_SHDN_THRESH	900
 #define CONNECTOR_TEMP_RST_THRESH	600
 #define CONNECTOR_TEMP_REG_H_THRESH	550
 #define CONNECTOR_TEMP_REG_L_THRESH	500
