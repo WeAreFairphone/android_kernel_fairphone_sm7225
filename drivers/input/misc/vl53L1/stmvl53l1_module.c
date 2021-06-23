@@ -34,6 +34,7 @@
 #include <linux/kthread.h>
 #include <linux/jhash.h>
 #include <linux/ctype.h>
+#include <linux/proc_fs.h>
 
 /*
  * API includes
@@ -278,6 +279,8 @@ static struct stmvl53l1_module_fn_t stmvl53l1_module_func_tbl = {
 
 static void stmvl53l1_input_push_data(struct stmvl53l1_data *data);
 
+static int FP4SetCalibrationData(struct stmvl53l1_data *pData);
+
 /*
  * Mutex to handle device id add/removal
  */
@@ -513,6 +516,130 @@ static void kill_mz_data(VL53L1_MultiRangingData_t *pdata)
 	pdata->RoiStatus = VL53L1_ROISTATUS_NOT_VALID;
 }
 
+
+static VL53L1_CalibrationData_t laser_cali_data; //Add for save calibration data
+
+#define ALL_CALIBRATION_FILE "/mnt/vendor/persist/camera/vl53l1_cali.bin"
+static int readCalibrationDataDone = 0; //for csc reload calibration data use
+static int cali_size = 372;
+static uint8_t golden_cali_data[] = {18,1,171,236,255,255,255,250,255,11,0,6,1,134,243,118,156,1,0,0,0,0,0,0,0,10,0,0,7,0,8,0,0,0,0,0,0,0,20,0,0,1,230,59,225,9,64,6,96,1,0,1,112,9,80,49,215,2,20,7,149,115,0,0,0,0,0,0,0,0,0,0,0,12,12,0,47,0,0,0,141,1,0,0,207,1,0,0,117,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,73,40,6,9,40,0,81,188,73,16,243,118,0,0,0,126,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,23,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,136,126,219,7,195,7,0,0,0,0,25,0,5,0,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+static int32_t get_size_from_file(const char *filename, uint64_t* size)
+{
+	struct kstat stat;
+	mm_segment_t fs;
+	int rc = 0;
+
+	stat.size = 0;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	rc = vfs_stat(filename,&stat);
+	if(rc < 0)
+	{
+		pr_err("vfs_stat(%s) failed, rc = %d\n",filename,rc);
+		rc = -1;
+		goto END;
+	}
+
+	*size = stat.size;
+	END:
+	set_fs(fs);
+	return rc;
+}
+static int read_file_into_buffer(const char *filename, uint8_t* data, uint32_t size)
+{
+	struct file *fp;
+	mm_segment_t fs;
+	loff_t pos;
+	int rc;
+
+	fp = filp_open(filename,O_RDONLY,S_IRWXU | S_IRWXG | S_IRWXO);
+	if (IS_ERR(fp)) {
+		pr_err("open(%s) failed\n", filename);
+		return -1;
+	}
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	pos = 0;
+	rc = vfs_read(fp, data, size, &pos);
+
+	set_fs(fs);
+	filp_close(fp, NULL);
+
+	return rc;
+}
+static int FP4SetCalibrationData(struct stmvl53l1_data *data) {
+	int rc = 0;
+	int get_size = 0;
+	uint64_t size;
+	uint8_t* pBuffer;
+
+	vl53l1_info("read calibraiont data done (%d),",readCalibrationDataDone);
+	if (readCalibrationDataDone == 0) {
+		if(get_size_from_file(ALL_CALIBRATION_FILE, &size) != 0) {
+		//read golden calibration data if read file failed
+			if (cali_size > sizeof(uint8_t) *sizeof(VL53L1_CalibrationData_t)) {
+			    memcpy(&laser_cali_data,golden_cali_data,sizeof(uint8_t) *sizeof(VL53L1_CalibrationData_t));
+			} else {
+				memcpy(&laser_cali_data,golden_cali_data,cali_size);
+			}
+			readCalibrationDataDone = 1;
+			vl53l1_info("read golden calibration data");
+		} else {
+			if(!(size == sizeof(VL53L1_CalibrationData_t))){
+				vl53l1_errmsg("get size(%d) struct size(%d)\n",size,sizeof(VL53L1_CalibrationData_t));
+				/*rc = -1;
+				goto END;*/
+			}
+			pBuffer = kzalloc(sizeof(uint8_t) *sizeof(VL53L1_CalibrationData_t), GFP_KERNEL);
+			if (pBuffer) {
+				get_size = read_file_into_buffer(ALL_CALIBRATION_FILE, pBuffer, size);
+				if (get_size > sizeof(uint8_t) *sizeof(VL53L1_CalibrationData_t)) {
+					memcpy(&laser_cali_data,pBuffer,sizeof(uint8_t) *sizeof(VL53L1_CalibrationData_t));
+					readCalibrationDataDone = 1;
+				} else if (get_size > 0) {
+					memcpy(&laser_cali_data,pBuffer,get_size);
+					readCalibrationDataDone = 1;
+				} else{
+					rc = -1;
+					kfree(pBuffer);
+					goto END;
+					vl53l1_errmsg("calibration data size(%d) is abnormal, normal(%d)\n",get_size,sizeof(uint8_t) *sizeof(VL53L1_CalibrationData_t));
+				}
+		        kfree(pBuffer);
+			}else{
+				rc = -1;
+				vl53l1_errmsg("alloc buffer fail\n");
+				goto END;
+			}
+		}
+
+		rc = VL53L1_SetCalibrationData(&data->stdev, &laser_cali_data);
+		if (rc) {
+			vl53l1_errmsg("VL53L1_SetCalibrationData fail %d\n", rc);
+			rc = store_last_error(data, rc);
+		}else{
+			vl53l1_info("set calibration data done");
+		}
+	}else if(readCalibrationDataDone == 1){
+		rc = VL53L1_SetCalibrationData(&data->stdev, &laser_cali_data);
+		if (rc) {
+			vl53l1_errmsg("VL53L1_SetCalibrationData fail %d\n", rc);
+			rc = store_last_error(data, rc);
+		}else{
+			vl53l1_info("set calibration data done");
+		}
+	}else{
+		rc = -1;
+		vl53l1_errmsg("get_size_from_file fail\n");
+	}
+
+	END:
+	return rc;
+}
 static void stmvl53l1_setup_auto_config(struct stmvl53l1_data *data)
 {
 	/* default config is detect object below 300mm with 1s period */
@@ -704,7 +831,7 @@ static int stmvl53l1_start(struct stmvl53l1_data *data)
 	data->is_first_irq = true;
 	data->is_data_valid = false;
 	data->is_xtalk_value_changed = false;
-
+	vl53l1_info("ST_Laser start E");
 	rc = reset_release(data);
 	if (rc)
 		goto done;
@@ -718,6 +845,10 @@ static int stmvl53l1_start(struct stmvl53l1_data *data)
 		goto done;
 	}
 
+	rc = FP4SetCalibrationData(data);
+	if (rc) {
+		vl53l1_errmsg("VL53L1 Set calibration data fail rc(%d)\n",rc);
+	}
 	rc = stmvl53l1_sendparams(data);
 	if (rc)
 		goto done;
