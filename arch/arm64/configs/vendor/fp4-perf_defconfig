@@ -733,3 +733,5 @@ CONFIG_GPIO_NPI_DOWN_STATUS=y
 CONFIG_STMVL53L1=y
 #zxz add for qnovo qns 3rd part charge algorithm service
 CONFIG_BATTERY_QNOVO_CHARGE_ALGO=y
+#FP4-263, mount tmpfs on /data with tmpfs in production mode, liquan.zhou.t2m, 20210624
+CONFIG_TMPFS_XATTR=y
