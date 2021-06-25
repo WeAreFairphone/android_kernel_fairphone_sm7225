@@ -81,6 +81,8 @@ struct step_chg_info {
 	struct votable		*fcc_votable;
 	struct votable		*fv_votable;
 	struct votable		*usb_icl_votable;
+	struct votable		*chg_disable_votable;
+
 	struct wakeup_source	*step_chg_ws;
 	struct power_supply	*batt_psy;
 	struct power_supply	*bms_psy;
@@ -1025,7 +1027,39 @@ static int handle_jeita(struct step_chg_info *chip)
 		else
 			fcc_ua = -EINVAL;
 	}
-	vote(chip->fcc_votable, JEITA_VOTER, (fcc_ua>=0) ? true : false, fcc_ua);
+
+//zxz add ,we not vote fcc 0 here
+//vote(chip->fcc_votable, JEITA_VOTER, (fcc_ua>=0) ? true : false, fcc_ua);
+	vote(chip->fcc_votable, JEITA_VOTER, (fcc_ua>0) ? true : false, fcc_ua);
+
+	pr_err("handle_jeita ,temp:%d, fcc_ua:%d  \n",pval.intval,fcc_ua);
+
+/*zxz add comment : 
+1.why not use hardware PMIC hard cold/Hot ?
+because if use hardware PMIC hard cold/Hot is cutoff USBIN current when reach the hard cold/Hot , 
+the device PMIC will stop USBIN current, but the FP4 adapter charger have a protect feature ,to avoid leakage current ,
+it will cutoff the output, so when the temperature recover ,but the adapter no output will cause charge abnormal .
+2.why not use vote fcc 0 to control charge current, if fcc to 0 the VPHPWR have current and fp4 adapter not cut off in theory ?
+not sure why if vote fcc to 0, it like usbicl to 0; 
+if temperature recover to normal, the charge current is low, because cp charge is disabled when current is low, 
+but the force main fcc and force main icl is 800, so the current may low, if redo charge enable it will be ok .
+ 
+*/
+	if (!chip->chg_disable_votable)
+		chip->chg_disable_votable = find_votable("CHG_DISABLE");
+	if (!chip->chg_disable_votable)
+		/* chg_disable_votable is a must */
+		return -EINVAL;
+
+	if(fcc_ua==0){
+		pr_err("handle_jeita ,FCC vote chg_disable_votable:true  \n");
+		vote(chip->chg_disable_votable, JEITA_VOTER, true, 0);
+	}else if(fcc_ua>0){
+		pr_err("handle_jeita ,FCC vote chg_disable_votable:false  \n");
+		vote(chip->chg_disable_votable, JEITA_VOTER, false, 0);
+	}else{
+		pr_err("handle_jeita ,FCC fcc_ua=%d \n",fcc_ua);
+	}
 
 	rc = get_val(chip->jeita_fv_config->fv_cfg,
 			chip->jeita_fv_config->param.rise_hys,
@@ -1045,8 +1079,15 @@ static int handle_jeita(struct step_chg_info *chip)
 			vote(chip->fcc_votable, CHG_CTL_VOTER, false, 0);
 		} else {
 			if (pval.intval > fv_uv) {
-				vote(chip->fcc_votable, CHG_CTL_VOTER, true, 0);
-			} else if ((pval.intval+FV_LVL_4) < fv_uv) {
+				//vote(chip->fcc_votable, CHG_CTL_VOTER, true, 0);
+				pr_err("handle_jeita ,FV vote chg_disable_votable:true  \n");
+				vote(chip->chg_disable_votable, CHG_CTL_VOTER, true, 0);
+			}else{
+				pr_err("handle_jeita ,FV vote chg_disable_votable:false  \n");
+				vote(chip->chg_disable_votable, CHG_CTL_VOTER, false, 0);
+			}
+
+			if ((pval.intval+FV_LVL_4) < fv_uv) {
 				if ((pval.intval+FV_LVL_3) >= fv_uv) {
 					vote(chip->fcc_votable, VBAT_LMT_VOTER, true, FCC_LVL_3);
 				} else if ((pval.intval+FV_LVL_2) >= fv_uv) {
@@ -1056,7 +1097,7 @@ static int handle_jeita(struct step_chg_info *chip)
 				} else {
 					vote(chip->fcc_votable, VBAT_LMT_VOTER, false, 0);
 				}
-				vote(chip->fcc_votable, CHG_CTL_VOTER, false, 0);
+				//vote(chip->fcc_votable, CHG_CTL_VOTER, false, 0);
 			}
 		}
 	} else {
@@ -1442,7 +1483,7 @@ int qcom_step_chg_init(struct device *dev,
 	chip->jeita_fcc_config->param.prop_name = "BATT_TEMP";
 #if defined(CONFIG_TCT_PM7250_COMMON)
 	chip->jeita_fcc_config->param.rise_hys = 10;
-	chip->jeita_fcc_config->param.fall_hys = 30;
+	chip->jeita_fcc_config->param.fall_hys = 20;
 #else
 	chip->jeita_fcc_config->param.rise_hys = 10;
 	chip->jeita_fcc_config->param.fall_hys = 10;
@@ -1452,7 +1493,7 @@ int qcom_step_chg_init(struct device *dev,
 	chip->jeita_fv_config->param.prop_name = "BATT_TEMP";
 #if defined(CONFIG_TCT_PM7250_COMMON)
 	chip->jeita_fv_config->param.rise_hys = 10;
-	chip->jeita_fv_config->param.fall_hys = 30;
+	chip->jeita_fv_config->param.fall_hys = 20;
 #else
 	chip->jeita_fv_config->param.rise_hys = 10;
 	chip->jeita_fv_config->param.fall_hys = 10;
