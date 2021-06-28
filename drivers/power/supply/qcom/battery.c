@@ -1555,6 +1555,10 @@ static void pl_disable_forever_work(struct work_struct *work)
 		vote(chip->hvdcp_hw_inov_dis_votable, PL_VOTER, false, 0);
 }
 
+
+#define QC3_ICL_MAX	2000000
+#define QC3_ICL_FP4_CP_MAX	1800000
+
 static int pl_disable_vote_callback(struct votable *votable,
 		void *data, int pl_disable, const char *client)
 {
@@ -1760,6 +1764,12 @@ static int pl_disable_vote_callback(struct votable *votable,
 //#if defined(CONFIG_TCT_PM7250_COMMON) && !defined(CONFIG_TCT_OTTAWA_CHG_PATCH)
 #if defined(CONFIG_TCT_PM7250_COMMON)
 			cp_ilim = total_fcc_ua;
+			rc = power_supply_get_property(chip->usb_psy,POWER_SUPPLY_PROP_PD_ACTIVE, &pval);
+			if (rc < 0)
+				pr_err("%s,Failed to read PD_ACTIVE status rc=%d\n",__func__,rc);
+			/*zxzadd for fp4 hvdcp usb icl should be less than 2A*/
+			if((pval.intval == POWER_SUPPLY_PD_INACTIVE)&&(cp_ilim>(QC3_ICL_MAX*2)))
+				cp_ilim =QC3_ICL_FP4_CP_MAX*2;
 #else
 			cp_ilim = total_fcc_ua - get_effective_result_locked(
 							chip->fcc_main_votable);
