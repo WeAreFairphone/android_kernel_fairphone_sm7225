@@ -330,6 +330,10 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 		{0x9b2a ,0x0001} ,//10[write]
 		{0x9b28 ,0x6001} ,//11[read]store done
 		{0x0220 ,0x0000} ,//12[write]code pt on
+
+		{0x0018 ,0x0001} ,//13[write]
+		{0x9E18 ,0x0002} ,//14[write]
+		{0x0024 ,0x0001} ,//15[write]
 	};
 
 	if (!o_ctrl) {
@@ -337,7 +341,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 		return -EINVAL;
 	}
 	total_bytes = sizeof(cml_ois_gyro_calibration[0]);
-		
+
 	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
 	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_WORD;
 	i2c_reg_setting.size = total_bytes;
@@ -351,6 +355,29 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	}
 	//[Begin]enter gyro cali mode
 	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *) (page_address(page));
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[13].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[13].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x0018 -> 0x0001");
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[14].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[14].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x9E18 -> 0x0002");
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[15].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[15].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x0024 -> 0x0001");
+
+	mdelay(50);
 	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[0].reg;
 	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[0].val;
 	i2c_reg_setting.reg_setting[0].delay = 1;
