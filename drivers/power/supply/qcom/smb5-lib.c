@@ -2537,7 +2537,7 @@ int smblib_set_prop_batt_status(struct smb_charger *chg,
 
 
 #if defined(CONFIG_TCT_PM7250_COMMON)
-extern int g_lcd_on;
+extern bool g_lcd_on;
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
