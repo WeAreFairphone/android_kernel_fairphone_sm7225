@@ -456,12 +456,10 @@ lim_fill_sme_assoc_ind_params(
  * This function sends either LIM_MLM_ASSOC_IND
  * or LIM_MLM_REASSOC_IND to SME.
  *
- * Return: QDF_STATUS
+ * Return: None
  */
-QDF_STATUS lim_send_mlm_assoc_ind(struct mac_context *mac,
-				  tpDphHashNode sta,
-				  struct pe_session *pe_session);
-
+void lim_send_mlm_assoc_ind(struct mac_context *mac, tpDphHashNode sta,
+			    struct pe_session *pe_session);
 void lim_process_assoc_rsp_frame(struct mac_context *, uint8_t *, uint8_t, struct pe_session *);
 void lim_process_disassoc_frame(struct mac_context *, uint8_t *, struct pe_session *);
 /*
