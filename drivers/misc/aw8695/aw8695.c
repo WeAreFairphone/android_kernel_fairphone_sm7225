@@ -1203,17 +1203,9 @@ static int aw8695_haptic_ram_config(struct aw8695 *aw8695)
     unsigned char wavloop = 0;
     pr_info("%s duration =%d\n", __func__, aw8695->duration);
 
-    if ((aw8695->duration >0 ) && (aw8695->duration <= 20)){//index 3 0~20ms
+    if ((aw8695->duration >0 ) && (aw8695->duration <= 50)){//index 3 0~20ms
         aw8695->index = 1;
-    } else if((aw8695->duration >20 ) && (aw8695->duration <= 40)){//index 2 20~30ms
-        if(aw8695_test_index)
-            aw8695->index = aw8695_test_index;
-        else {
-            /* code */
-            aw8695->index = 5;
-        }
-    } else if((aw8695->duration >40 ) && (aw8695->duration <= 60)){//index 1 30~60ms
-        aw8695->index = 6;
+
     } else {//index 4  	 >60ms
         aw8695->index = 2;
         wavloop = 15;
