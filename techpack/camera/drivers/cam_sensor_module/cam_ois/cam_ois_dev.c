@@ -176,6 +176,8 @@ static int cam_ois_init_subdev_param(struct cam_ois_ctrl_t *o_ctrl)
 DEVICE_ATTR(ois_gyro_cali_data, 0664, ois_gyro_cali_data_show, ois_gyro_cali_data_store);
 DEVICE_ATTR(ois_position_data, 0664, ois_position_data_show, ois_position_data_store);
 DEVICE_ATTR(ois_status, 0664, ois_status_show, ois_status_store);
+DEVICE_ATTR(ois_reg, 0664, ois_reg_show, ois_reg_store);
+DEVICE_ATTR(ois_init_before_sr_test, 0664, ois_init_before_sr_test_show, ois_init_before_sr_test_store);
 
 
 static int cam_ois_i2c_driver_probe(struct i2c_client *client,
@@ -324,9 +326,11 @@ static int32_t cam_ois_platform_driver_probe(
 	if (rc)
 		goto free_soc;
 
-	if ((device_create_file(&pdev->dev, &dev_attr_ois_gyro_cali_data)) ||
-		(device_create_file(&pdev->dev, &dev_attr_ois_position_data))  ||
-		(device_create_file(&pdev->dev, &dev_attr_ois_status)))
+	if ((device_create_file(&pdev->dev, &dev_attr_ois_gyro_cali_data))  ||
+		(device_create_file(&pdev->dev, &dev_attr_ois_position_data))   ||
+		(device_create_file(&pdev->dev, &dev_attr_ois_status))			||
+		(device_create_file(&pdev->dev, &dev_attr_ois_reg))				||
+		(device_create_file(&pdev->dev, &dev_attr_ois_init_before_sr_test)))
 	{
 		CAM_ERR(CAM_OIS, "creat ois device_create_file failed rc=%d", rc);
 	}
@@ -371,6 +375,8 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_ois_gyro_cali_data);
 	device_remove_file(&pdev->dev, &dev_attr_ois_status);
 	device_remove_file(&pdev->dev, &dev_attr_ois_position_data);
+	device_remove_file(&pdev->dev, &dev_attr_ois_reg);
+	device_remove_file(&pdev->dev, &dev_attr_ois_init_before_sr_test);
 	CAM_ERR(CAM_OIS, " device_remove_file node");
 	
 	CAM_INFO(CAM_OIS, "platform driver remove invoked");

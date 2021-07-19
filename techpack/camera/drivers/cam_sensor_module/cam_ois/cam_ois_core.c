@@ -26,8 +26,12 @@ static int32_t gyro_offset_Y = 0;
 static int32_t gyro_offset_X_check = -1;
 static int32_t gyro_offset_Y_check = -1;
 
+static int32_t ois_reg_value = -1;
+
+
 static int calibration_status = 0;
 static int ois_status = 0;
+static int ois_init_status = 0;
 
 int32_t cam_ois_construct_default_power_setting(
 	struct cam_sensor_power_ctrl_t *power_info)
@@ -361,6 +365,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[13].val;
 	i2c_reg_setting.reg_setting[0].delay = 1;
 	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
 	CAM_ERR(CAM_OIS, "write 0x0018 -> 0x0001");
 
 	mdelay(50);
@@ -368,6 +373,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[14].val;
 	i2c_reg_setting.reg_setting[0].delay = 1;
 	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
 	CAM_ERR(CAM_OIS, "write 0x9E18 -> 0x0002");
 
 	mdelay(50);
@@ -375,6 +381,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[15].val;
 	i2c_reg_setting.reg_setting[0].delay = 1;
 	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
 	CAM_ERR(CAM_OIS, "write 0x0024 -> 0x0001");
 
 	mdelay(50);
@@ -384,110 +391,60 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	i2c_reg_setting.reg_setting[0].data_mask = 0;
 	CAM_ERR(CAM_OIS, "write 0x9b2c -> 0x0002");
 	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
-	if (rc < 0) {
-		CAM_ERR(CAM_OIS, "write {0x9b2c ,0x0002} failed %d", rc);
 
-	}
-	else
+	mdelay(50);
+	cmd_adress = cml_ois_gyro_calibration[5].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9fb6 -> 0x%x",cmd_data);
+		
+	mdelay(50);
+	cmd_adress = cml_ois_gyro_calibration[6].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9fb8 -> 0x%x",cmd_data);
+		
+	mdelay(50);
+	cmd_adress = cml_ois_gyro_calibration[1].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[2].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[2].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x9b2a -> 0x0001");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+
+
+	mdelay(3000);
+	cmd_adress = cml_ois_gyro_calibration[3].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
+
+	if (cmd_data == cml_ois_gyro_calibration[3].val)
 	{
-		mdelay(50);
-		cmd_adress = cml_ois_gyro_calibration[5].reg;
-		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-		CAM_ERR(CAM_OIS,"read 0x9fb6 -> 0x%x",cmd_data);
-		
-		mdelay(50);
-		cmd_adress = cml_ois_gyro_calibration[6].reg;
-		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-		CAM_ERR(CAM_OIS,"read 0x9fb8 -> 0x%x",cmd_data);
-		
-		mdelay(50);
-		cmd_adress = cml_ois_gyro_calibration[1].reg;
-		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-		if (rc < 0) 
-		{
-			CAM_ERR(CAM_OIS, "read {0x9b28 ,0x2000} failed: %d",rc);
-		} 
-		else
-		{
-			CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
-			if (cmd_data == cml_ois_gyro_calibration[1].val)
-			{
-				i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[2].reg;
-				i2c_reg_setting.reg_setting[0].reg_data = cml_ois_gyro_calibration[2].val;
-				i2c_reg_setting.reg_setting[0].delay = 1;
-				i2c_reg_setting.reg_setting[0].data_mask = 0;
-				CAM_ERR(CAM_OIS, "write 0x9b2a -> 0x0001");
-				mdelay(50);
-				rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
-				if (rc < 0) {
-					CAM_ERR(CAM_OIS, "write {0x9b2a ,0x0001} failed %d", rc);
-				}
-				else
-				{
-					mdelay(50);
-					cmd_adress = cml_ois_gyro_calibration[3].reg;
-					rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-					if (rc < 0) 
-					{
-						CAM_ERR(CAM_OIS, "read {0x9b28 ,0x2001} failed: %d",rc);
-					}
-					else
-					{
-						CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
-						if (cmd_data == cml_ois_gyro_calibration[3].val)
-						{
-							CAM_ERR(CAM_OIS, "read {0x9b28 ,0x2001} success");
-							cmd_adress = cml_ois_gyro_calibration[4].reg;
-							rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-							if (rc < 0) 
-							{
-								CAM_ERR(CAM_OIS, "read {0x9fb0 ,0x8001} failed: %d",rc);
-							}
-							else
-							{
-								CAM_ERR(CAM_OIS,"read 0x9fb0 -> 0x%x",cmd_data);
-								if (cmd_data == cml_ois_gyro_calibration[4].val)
-									CAM_ERR(CAM_OIS,"read 0x9fb0 -> 0x%x",cmd_data);
-							}
-						}
-						mdelay(50);
-						cmd_adress = cml_ois_gyro_calibration[5].reg;
-						rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-						if (rc < 0) 
-						{
-							CAM_ERR(CAM_OIS, "read 0x9fb6  failed: %d",rc);
-						}
-						else
-						{
-							CAM_ERR(CAM_OIS,"read 0x9fb6 -> 0x%x",cmd_data);
-							gyro_offset_X = cmd_data;
-						}
-
-						
-						mdelay(50);
-						cmd_adress = cml_ois_gyro_calibration[6].reg;
-						rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-						if (rc < 0) 
-						{
-							CAM_ERR(CAM_OIS, "read 0x9fb8 failed: %d",rc);
-						}
-						else
-						{
-							CAM_ERR(CAM_OIS,"read 0x9fb8 -> 0x%x",cmd_data);
-							gyro_offset_Y = cmd_data;
-						}
-						
-						
-					}
-				}
-			}
-			else
-			{
-				CAM_ERR(CAM_OIS,"ois read value nok");
-			}
-		}
-
+		CAM_ERR(CAM_OIS, "read {0x9b28 ,0x2001} success");
 	}
+	
+	mdelay(50);
+	cmd_adress = cml_ois_gyro_calibration[4].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9fb0 -> 0x%x",cmd_data);
+
+	mdelay(3000);
+	cmd_adress = cml_ois_gyro_calibration[5].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9fb6 -> 0x%x",cmd_data);
+	gyro_offset_X = cmd_data;
+
+						
+	mdelay(50);
+	cmd_adress = cml_ois_gyro_calibration[6].reg;
+	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	CAM_ERR(CAM_OIS,"read 0x9fb8 -> 0x%x",cmd_data);
+	gyro_offset_Y = cmd_data;
+						
+
 	CAM_ERR(CAM_OIS,"ois calibration op end");
 	//[End]enter gyro cali mode
 
@@ -531,7 +488,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 		CAM_ERR(CAM_OIS, "write 0x9b2a -> 0x0001 failed %d", rc);
 	}
 
-	mdelay(100);
+	mdelay(50);
 	cmd_adress = cml_ois_gyro_calibration[11].reg;
 	rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
 	CAM_ERR(CAM_OIS,"read 0x9b28 -> 0x%x",cmd_data);
@@ -724,12 +681,135 @@ release_firmware:
 }
 
 const REGSETTING cml_ois_control[]= {
-	{0x9b2c ,0x0001} ,
-	{0x9b2a ,0x0001} ,
-	{0x9b28 ,0x1001} ,
-	{0x9b2a ,0x0003} ,//enter idle low power mode
-	{0x9b28 ,0x1003} ,
+	{0x9b2c ,0x0001} ,//[0]
+	{0x9b2a ,0x0001} ,//[1]
+	{0x9b28 ,0x1001} ,//[2]
+	{0x9b2a ,0x0003} ,//[3]enter idle low power mode
+	{0x9b28 ,0x1003} ,//[4]
+
+//ois init before sr test
+	{0x0018 ,0x0001} ,//[5]
+	{0x9e18 ,0x0002} ,//[6]
+	{0x0024 ,0x0001} ,//[7]
+	{0x8820 ,0x0028} ,//[8]
+	{0x9b2a ,0x0002} ,//[9]
 };
+
+static int cam_ois_init(struct cam_ois_ctrl_t *o_ctrl)
+{
+	uint16_t                           total_bytes = 0;
+	int32_t                            rc = 0;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
+	struct page                       *page = NULL;
+  	uint32_t                           fw_size;
+	
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return -EINVAL;
+	}
+	total_bytes = sizeof(cml_ois_control[0]);
+
+	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.size = total_bytes;
+	i2c_reg_setting.delay = 0;
+
+	fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *	total_bytes) >> PAGE_SHIFT;
+	page = cma_alloc(dev_get_cma_area((o_ctrl->soc_info.dev)),fw_size, 0, GFP_KERNEL);
+	if (!page) {
+		CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
+		return -ENOMEM;
+	}
+
+	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *) (page_address(page));
+
+/*************			OIS init BEGIN	                ******************/
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_control[5].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_control[5].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x0018 -> 0x0001");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_control[6].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_control[6].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x9e18 -> 0x0002");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_control[7].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_control[7].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x0024 -> 0x0001");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_control[8].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_control[8].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x8820 -> 0x0028");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+
+	mdelay(50);
+	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_control[9].reg;
+	i2c_reg_setting.reg_setting[0].reg_data = cml_ois_control[9].val;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	CAM_ERR(CAM_OIS, "write 0x9b2a -> 0x0002");
+	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+
+	mdelay(50);
+	cma_release(dev_get_cma_area((o_ctrl->soc_info.dev)),	page, fw_size);
+	page = NULL;
+
+	return rc;
+}
+
+
+ssize_t ois_init_before_sr_test_show(struct device *dev, struct device_attribute *attr, char *buf){
+	
+	return sprintf(buf, "%u\n", ois_init_status);
+
+}
+
+ssize_t ois_init_before_sr_test_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count){
+	struct cam_ois_ctrl_t *o_ctrl = NULL;
+	char cmd_buf[32];
+	uint32_t cmd_adress=0,cmd_data=0;
+	char flag;
+	int rc = 0;
+
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	memset(cmd_buf,0,32);
+	o_ctrl = platform_get_drvdata(pdev);
+
+
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return count;
+	}
+	//cpy user cmd to kernel 0x:0x:r  0x:0x:w
+	strcpy(cmd_buf,buf);
+	sscanf(cmd_buf,"%x:%x:%c",&cmd_adress,&cmd_data,&flag);
+
+	if ((flag == 'w') && (cmd_adress == 0x0018) && (cmd_data == 0x0001))
+	{
+		CAM_ERR(CAM_OIS, "prepare ois write:adress=0x%x,data=0x%x",cmd_adress,cmd_data);
+		rc = cam_ois_init(o_ctrl);
+		if (rc == 0)
+			ois_init_status = 1;
+		else 
+			ois_init_status = 0;
+	}
+	
+	return count;
+}
 
 static int cam_cml_ois_enable(struct cam_ois_ctrl_t *o_ctrl)
 {
@@ -843,6 +923,112 @@ static int cam_cml_ois_disable(struct cam_ois_ctrl_t *o_ctrl)
     return rc;
 }
 
+ssize_t ois_reg_show(struct device *dev, struct device_attribute *attr, char *buf){
+	
+	return sprintf(buf, "0x%x\n", ois_reg_value);
+
+}
+
+ssize_t ois_reg_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count){
+
+	struct cam_ois_ctrl_t *o_ctrl = NULL;
+	char cmd_buf[32];
+	uint32_t cmd_adress=0,cmd_data=0,read_data=0;
+	char flag;
+	int rc = 0;
+	int i = 0;
+
+	uint16_t                           total_bytes = 0;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
+	struct page                       *page = NULL;
+  	uint32_t                           fw_size;
+	
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	memset(cmd_buf,0,32);
+	o_ctrl = platform_get_drvdata(pdev);
+
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return count;
+	}
+
+	total_bytes = sizeof(cml_ois_control[0]);
+		
+	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.size = total_bytes;
+	i2c_reg_setting.delay = 0;
+
+	fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *	total_bytes) >> PAGE_SHIFT;
+	page = cma_alloc(dev_get_cma_area((o_ctrl->soc_info.dev)),fw_size, 0, GFP_KERNEL);
+	if (!page) {
+		CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
+		return -ENOMEM;
+	}
+	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *) (page_address(page));
+	
+	//cpy user cmd to kernel 0x:0x:r/w
+	strcpy(cmd_buf,buf);
+	sscanf(cmd_buf,"%x:%x:%c",&cmd_adress,&cmd_data,&flag);
+
+	if (flag == 'r')
+	{
+		mdelay(50);
+		rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&read_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+		if (rc < 0) 
+		{
+			CAM_ERR(CAM_OIS, "read %x  failed: %d",cmd_adress,rc);
+		}
+		else
+		{
+			CAM_ERR(CAM_OIS,"read %x -> 0x%x",cmd_adress,read_data);
+			ois_reg_value = read_data;
+		}
+		mdelay(50);
+	}
+	else if (flag == 'w')
+	{
+		mdelay(50);
+		i2c_reg_setting.reg_setting[0].reg_addr = cmd_adress;
+		i2c_reg_setting.reg_setting[0].reg_data = cmd_data;
+		i2c_reg_setting.reg_setting[0].delay = 1;
+		i2c_reg_setting.reg_setting[0].data_mask = 0;
+		CAM_ERR(CAM_OIS, "write 0x%x -> 0x%x",cmd_adress,cmd_data);
+		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+		if (rc < 0) {
+			CAM_ERR(CAM_OIS, "write 0x%x -> 0x%x failed %d",cmd_adress,cmd_data,rc);
+		
+		}
+		mdelay(50);
+	}
+	else
+	{
+		if (flag == 'k')
+		{
+			while(i < 3000)
+			{
+				mdelay(10);
+				cmd_adress = 0x9bc0;
+				rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&read_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+				pr_err("yjw cam_camera_cci_i2c_read_seq line%d: addr = 0x%x ,Data: 0x%x \n",__LINE__,cmd_adress,read_data);
+				cmd_adress = 0x9c00;
+				rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&read_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+				pr_err("yjw cam_camera_cci_i2c_read_seq line%d: addr = 0x%x ,Data: 0x%x \n",__LINE__,cmd_adress,read_data);
+				cmd_adress = 0x9bc2;
+				rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&read_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+				pr_err("yjw cam_camera_cci_i2c_read_seq line%d: addr = 0x%x ,Data: 0x%x \n",__LINE__,cmd_adress,read_data);
+				cmd_adress = 0x9c02;
+				rc = camera_io_dev_read(&(o_ctrl->io_master_info),cmd_adress,&read_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+				pr_err("yjw cam_camera_cci_i2c_read_seq line%d: addr = 0x%x ,Data: 0x%x \n",__LINE__,cmd_adress,read_data);
+				i++;
+			}
+		}
+	}
+
+
+
+	return count;
+}
 
 static char ois_read_cmd_buf[32];
 
