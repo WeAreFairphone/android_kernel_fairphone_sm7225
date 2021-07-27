@@ -477,6 +477,14 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 		goto error_disable_vregs;
 	}
 
+#if defined(CONFIG_PXLW_IRIS)
+	usleep_range(1*1000, 1*1000);
+	iris_clk_enable(true);
+	usleep_range(3*1000, 3*1000);
+	iris_reset();
+	usleep_range(5*1000, 5*1000);
+#endif
+
 	rc = dsi_panel_reset(panel);
 	if (rc) {
 		DSI_ERR("[%s] failed to reset panel, rc=%d\n", panel->name, rc);
@@ -4198,12 +4206,7 @@ int dsi_panel_prepare(struct dsi_panel *panel)
 			goto error;
 		}
 	}
-#if defined(CONFIG_PXLW_IRIS)
-	usleep_range(1*1000, 1*1000);
-	iris_clk_enable(true);
-	usleep_range(1*1000, 1*1000);
-	iris_reset();
-#endif
+
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_PRE_ON);
 	if (rc) {
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_PRE_ON cmds, rc=%d\n",
