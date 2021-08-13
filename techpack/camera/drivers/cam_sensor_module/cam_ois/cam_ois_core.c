@@ -32,6 +32,8 @@ static int32_t ois_reg_value = -1;
 static int calibration_status = 0;
 static int ois_status = 0;
 static int ois_init_status = 0;
+extern float gyro_gain_X;
+
 
 int32_t cam_ois_construct_default_power_setting(
 	struct cam_sensor_power_ctrl_t *power_info)
@@ -317,6 +319,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	struct page                       *page = NULL;
   	uint32_t                           fw_size;
 	uint32_t cmd_adress=0,cmd_data=0;
+	uint32_t c=0;
 	
 	const REGSETTING cml_ois_gyro_calibration[]= {
 		//gyro cali mode
@@ -338,6 +341,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 		{0x0018 ,0x0001} ,//13[write]
 		{0x9E18 ,0x0002} ,//14[write]
 		{0x0024 ,0x0001} ,//15[write]
+		{0x9fb2 ,0x0000} ,//16[read]
 	};
 
 	if (!o_ctrl) {
@@ -383,6 +387,19 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	i2c_reg_setting.reg_setting[0].data_mask = 0;
 	rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
 	CAM_ERR(CAM_OIS, "write 0x0024 -> 0x0001");
+
+	mdelay(50);
+	gyro_gain_X = gyro_gain_X -0.075;
+	c = (int) (gyro_gain_X*8192);
+	if (c > 0)
+	{
+		i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[16].reg;
+		i2c_reg_setting.reg_setting[0].reg_data = c;
+		i2c_reg_setting.reg_setting[0].delay = 1;
+		i2c_reg_setting.reg_setting[0].data_mask = 0;
+		CAM_ERR(CAM_OIS, "write 0x9fb2 -> 0x%x",c);
+		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+	}
 
 	mdelay(50);
 	i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[0].reg;
