@@ -50,6 +50,16 @@ int32_t cam_cci_i2c_read(struct cam_sensor_cci_client *cci_client,
 	return rc;
 }
 
+union sf
+{
+	float f;
+	unsigned char s[4];
+}cam_gyro_gain;
+
+float gyro_gain_X = 0.0;
+
+
+
 int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 	uint32_t addr, uint8_t *data,
 	enum camera_sensor_i2c_type addr_type,
@@ -60,6 +70,7 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 	unsigned char             *buf = NULL;
 	int                        i = 0;
 	struct cam_cci_ctrl        cci_ctrl;
+	uint8_t d[4];
 
 	if ((addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
 		|| (data_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
@@ -89,6 +100,15 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 		data[i] = buf[i];
 		CAM_DBG(CAM_SENSOR, "Byte %d: Data: 0x%x\n", i, data[i]);
 	}
+	
+	if (num_byte == 7494){
+		for (i = 0; i < 4; i++)
+			d[i] = data[6980+i];
+		sprintf(cam_gyro_gain.s,"%c%c%c%c", d[0],d[1],d[2],d[3]);
+		gyro_gain_X = cam_gyro_gain.f;
+	}
+
+	
 	kfree(buf);
 	return rc;
 }
