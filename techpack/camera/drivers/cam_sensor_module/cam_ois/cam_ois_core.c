@@ -320,6 +320,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
   	uint32_t                           fw_size;
 	uint32_t cmd_adress=0,cmd_data=0;
 	uint32_t c=0;
+	float gain = 0.0;
 	
 	const REGSETTING cml_ois_gyro_calibration[]= {
 		//gyro cali mode
@@ -389,8 +390,8 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	CAM_ERR(CAM_OIS, "write 0x0024 -> 0x0001");
 
 	mdelay(50);
-	gyro_gain_X = gyro_gain_X -0.075;
-	c = (int) (gyro_gain_X*8192);
+	gain = gyro_gain_X -0.075;
+	c = (int) (gain*8192);
 	if (c > 0)
 	{
 		i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[16].reg;
