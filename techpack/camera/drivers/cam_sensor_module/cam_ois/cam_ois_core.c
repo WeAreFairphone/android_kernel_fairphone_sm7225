@@ -443,7 +443,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 			i2c_reg_setting.reg_setting[0].reg_data = d;
 			i2c_reg_setting.reg_setting[0].delay = 1;
 			i2c_reg_setting.reg_setting[0].data_mask = 0;
-			CAM_ERR(CAM_OIS, "write 0x9fb4 -> 0x%x(manual)",c);
+			CAM_ERR(CAM_OIS, "write 0x9fb4 -> 0x%x(manual)",d);
 			rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
 		}
 		else
