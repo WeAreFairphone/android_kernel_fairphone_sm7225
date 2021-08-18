@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
-
 #include <linux/module.h>
 #include <linux/firmware.h>
 #include <linux/dma-contiguous.h>
@@ -15,6 +14,9 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+#define      default_gain_X 0.075
+#define      default_gain_Y 0.05
+
 typedef struct REGSETTING{
 	uint16_t reg ;
 	uint16_t val ;
@@ -22,18 +24,19 @@ typedef struct REGSETTING{
 
 static int32_t gyro_offset_X = 0;
 static int32_t gyro_offset_Y = 0;
-
 static int32_t gyro_offset_X_check = -1;
 static int32_t gyro_offset_Y_check = -1;
-
 static int32_t ois_reg_value = -1;
 
 
 static int calibration_status = 0;
 static int ois_status = 0;
 static int ois_init_status = 0;
-extern float gyro_gain_X;
 
+extern float gyro_gain_X;
+extern float gyro_gain_Y;
+static int32_t decrease_gain_X = 0;
+static int32_t decrease_gain_Y = 0;
 
 int32_t cam_ois_construct_default_power_setting(
 	struct cam_sensor_power_ctrl_t *power_info)
@@ -319,9 +322,10 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	struct page                       *page = NULL;
   	uint32_t                           fw_size;
 	uint32_t cmd_adress=0,cmd_data=0;
-	uint32_t c=0;
-	float gain = 0.0;
-	
+	uint32_t c=0,d=0;
+	float target_gain_X = 0.0;
+	float target_gain_Y = 0.0;
+
 	const REGSETTING cml_ois_gyro_calibration[]= {
 		//gyro cali mode
 		{0x9b2c ,0x0002} ,//0[write]enter calibration mode
@@ -343,6 +347,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 		{0x9E18 ,0x0002} ,//14[write]
 		{0x0024 ,0x0001} ,//15[write]
 		{0x9fb2 ,0x0000} ,//16[read]
+		{0x9fb4 ,0x0000} ,//17[read]
 	};
 
 	if (!o_ctrl) {
@@ -390,16 +395,59 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	CAM_ERR(CAM_OIS, "write 0x0024 -> 0x0001");
 
 	mdelay(50);
-	gain = gyro_gain_X -0.075;
-	c = (int) (gain*8192);
-	if (c > 0)
+	if (decrease_gain_X == 0 && decrease_gain_Y == 0)
 	{
-		i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[16].reg;
-		i2c_reg_setting.reg_setting[0].reg_data = c;
-		i2c_reg_setting.reg_setting[0].delay = 1;
-		i2c_reg_setting.reg_setting[0].data_mask = 0;
-		CAM_ERR(CAM_OIS, "write 0x9fb2 -> 0x%x",c);
-		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+		target_gain_X = gyro_gain_X - default_gain_X;
+		target_gain_Y = gyro_gain_Y - default_gain_Y;
+		c = (int) (target_gain_X*8192);
+		d = (int) (target_gain_Y*8192);
+
+		if (c<=11264 && c>=5939 && d<=11060 && d>=6144)//0.725-1.375,0.75-1.35
+		{
+			i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[16].reg;
+			i2c_reg_setting.reg_setting[0].reg_data = c;
+			i2c_reg_setting.reg_setting[0].delay = 1;
+			i2c_reg_setting.reg_setting[0].data_mask = 0;
+			CAM_ERR(CAM_OIS, "write 0x9fb2 -> 0x%x(default offset)",c);
+			rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+
+			mdelay(50);
+			i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[17].reg;
+			i2c_reg_setting.reg_setting[0].reg_data = d;
+			i2c_reg_setting.reg_setting[0].delay = 1;
+			i2c_reg_setting.reg_setting[0].data_mask = 0;
+			CAM_ERR(CAM_OIS, "write 0x9fb4 -> 0x%x(default offset)",d);
+			rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+		}
+		else
+			CAM_ERR(CAM_OIS, "invalid x(0x%x) or y(0x%x) gain",c,d);
+	}
+	else
+	{
+		target_gain_X = gyro_gain_X - (float) decrease_gain_X/1000;
+		target_gain_Y = gyro_gain_Y - (float) decrease_gain_Y/1000;
+		c = (int) (target_gain_X*8192);
+		d = (int) (target_gain_Y*8192);
+		
+		if (c<=11264 && c>=5939 && d<=11060 && d>=6144)//0.725-1.375,0.75-1.35
+		{
+			i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[16].reg;
+			i2c_reg_setting.reg_setting[0].reg_data = c;
+			i2c_reg_setting.reg_setting[0].delay = 1;
+			i2c_reg_setting.reg_setting[0].data_mask = 0;
+			CAM_ERR(CAM_OIS, "write 0x9fb2 -> 0x%x(manual)",c);
+			rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+
+			mdelay(50);
+			i2c_reg_setting.reg_setting[0].reg_addr = cml_ois_gyro_calibration[17].reg;
+			i2c_reg_setting.reg_setting[0].reg_data = d;
+			i2c_reg_setting.reg_setting[0].delay = 1;
+			i2c_reg_setting.reg_setting[0].data_mask = 0;
+			CAM_ERR(CAM_OIS, "write 0x9fb4 -> 0x%x(manual)",c);
+			rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_reg_setting);
+		}
+		else
+			CAM_ERR(CAM_OIS, "invalid x(0x%x) or y(0x%x) gain",c,d);
 	}
 
 	mdelay(50);
@@ -1106,6 +1154,40 @@ ssize_t ois_position_data_store(struct device *dev,  struct device_attribute *at
 	
 	return count;
 }
+
+ssize_t ois_gain_set_show(struct device *dev, struct device_attribute *attr, char *buf){
+	
+	return sprintf(buf, "%d,%d\n", decrease_gain_X,decrease_gain_Y);
+}
+
+ssize_t ois_gain_set_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count){
+
+	struct cam_ois_ctrl_t *o_ctrl = NULL;
+	char cmd_buf[32];
+	char flag;
+	int32_t x_gain=0,y_gain=0;
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
+	memset(cmd_buf,0,32);
+	o_ctrl = platform_get_drvdata(pdev);
+
+	if (!o_ctrl) {
+		CAM_ERR(CAM_OIS, "Invalid Args");
+		return count;
+	}
+	//cpy user cmd to kernel x_gain:y_gain:w
+	strcpy(cmd_buf,buf);
+	sscanf(cmd_buf,"%d:%d:%c",&x_gain,&y_gain,&flag);
+
+	if (flag == 'w')
+	{
+		CAM_ERR(CAM_OIS, "x_gain %d,y_gain %d",x_gain,y_gain);
+		decrease_gain_X = x_gain;
+		decrease_gain_Y = y_gain;
+	}
+	
+	return count;
+}
+
 
 ssize_t ois_status_show(struct device *dev, struct device_attribute *attr, char *buf){
 
