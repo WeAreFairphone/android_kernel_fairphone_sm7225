@@ -57,8 +57,7 @@ union sf
 }cam_gyro_gain;
 
 float gyro_gain_X = 0.0;
-
-
+float gyro_gain_Y = 0.0;
 
 int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 	uint32_t addr, uint8_t *data,
@@ -105,7 +104,12 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 		for (i = 0; i < 4; i++)
 			d[i] = data[6980+i];
 		sprintf(cam_gyro_gain.s,"%c%c%c%c", d[0],d[1],d[2],d[3]);
-		gyro_gain_X = cam_gyro_gain.f;
+		gyro_gain_X = cam_gyro_gain.f;//X gain
+
+		for (i = 0; i < 4; i++)
+			d[i] = data[6984+i];
+		sprintf(cam_gyro_gain.s,"%c%c%c%c", d[0],d[1],d[2],d[3]);
+		gyro_gain_Y = cam_gyro_gain.f;//Y gain
 	}
 
 	
