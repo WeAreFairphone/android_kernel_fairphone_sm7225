@@ -225,7 +225,8 @@ static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
 	s_ctrl->bridge_intf.ops.flush_req = cam_sensor_flush_request;
 
 	s_ctrl->sensordata->power_info.dev = soc_info->dev;
-
+	s_ctrl->power_stat = CAM_SENSOR_POWER_OFF;
+	s_ctrl->setting_stat = CAM_SENSOR_SETTING_INVALID;
 	return rc;
 unreg_subdev:
 	cam_unregister_subdev(&(s_ctrl->v4l2_dev_str));
