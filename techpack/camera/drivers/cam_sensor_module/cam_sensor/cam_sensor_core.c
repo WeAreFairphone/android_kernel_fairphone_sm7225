@@ -16,8 +16,8 @@ int sensor_start_thread(void *ctrl);
 struct cam_sensor_i2c_reg_setting_oem{
 	struct cam_sensor_i2c_reg_array reg_setting[4600];
 	uint32_t size;
-	 enum camera_sensor_i2c_type addr_type;
-     enum camera_sensor_i2c_type data_type;
+	enum camera_sensor_i2c_type addr_type;
+	enum camera_sensor_i2c_type data_type;
 	unsigned short delay;
 };
 
@@ -1058,7 +1058,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			rc = -EAGAIN;
 			goto release_mutex;
 		}
-		
+
 		if(s_ctrl->power_stat == CAM_SENSOR_POWER_ON)
 		{
 			rc = cam_sensor_power_down(s_ctrl);
@@ -1267,13 +1267,13 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 		break;
 	case CAM_GET_ID:{
-        rc = copy_to_user((void __user *)cmd->handle,&s_ctrl->soc_info.index,sizeof(uint32_t));
-        if(rc < 0){
-            CAM_ERR(CAM_SENSOR,"get_id err");
-            goto release_mutex;
+			rc = copy_to_user((void __user *)cmd->handle,&s_ctrl->soc_info.index,sizeof(uint32_t));
+			if(rc < 0){
+			CAM_ERR(CAM_SENSOR,"get_id err");
+			goto release_mutex;
         }
     }
-        break;
+		break;
 	case CAM_SENSOR_POWERON:{
 				struct task_struct *thread_hand = NULL;
 				thread_hand = kthread_run(sensor_start_thread,s_ctrl,s_ctrl->device_name);
@@ -1285,7 +1285,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				}
 		}
 		break;
-							
+
 	default:
 		CAM_ERR(CAM_SENSOR, "Invalid Opcode: %d", cmd->op_code);
 		rc = -EINVAL;
@@ -1690,7 +1690,9 @@ int sensor_start_thread(void *ctrl)
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	if(s_ctrl->power_stat == CAM_SENSOR_POWER_OFF)
 	{
-		rc = cam_sensor_power_up(s_ctrl);
+		if(s_ctrl->soc_info.index == 0 && s_ctrl->sensordata->slave_info.sensor_id == 0x582)//main
+		{
+			rc = cam_sensor_power_up(s_ctrl);
 			if(rc < 0)
 			{
 				CAM_ERR(CAM_SENSOR,"sensor power up error");
@@ -1699,30 +1701,28 @@ int sensor_start_thread(void *ctrl)
 				s_ctrl->power_stat = CAM_SENSOR_POWER_ON;
 				if(s_ctrl->setting_stat != CAM_SENSOR_SETTING_SUCCESS)
 				{
-					if(s_ctrl->soc_info.index == 0 && s_ctrl->sensordata->slave_info.sensor_id == 0x582)//main
+					struct cam_sensor_i2c_reg_setting sensor_setting;
+					sensor_setting.reg_setting = g_oem_sensor_setting.sensor582_sma.reg_setting;
+					sensor_setting.size = g_oem_sensor_setting.sensor582_sma.size;
+					sensor_setting.addr_type = g_oem_sensor_setting.sensor582_sma.addr_type;
+					sensor_setting.data_type = g_oem_sensor_setting.sensor582_sma.data_type;
+					sensor_setting.delay = g_oem_sensor_setting.sensor582_sma.delay;
+					rc = camera_io_dev_write(&(s_ctrl->io_master_info),&sensor_setting);
+					if(rc < 0)
 					{
-							struct cam_sensor_i2c_reg_setting sensor_setting;
-							sensor_setting.reg_setting = g_oem_sensor_setting.sensor582_sma.reg_setting;
-							sensor_setting.size = g_oem_sensor_setting.sensor582_sma.size;
-							sensor_setting.addr_type = g_oem_sensor_setting.sensor582_sma.addr_type;
-							sensor_setting.data_type = g_oem_sensor_setting.sensor582_sma.data_type;
-							sensor_setting.delay = g_oem_sensor_setting.sensor582_sma.delay;
-							rc = camera_io_dev_write(&(s_ctrl->io_master_info),&sensor_setting);
-							if(rc < 0)
-							{
-									CAM_ERR(CAM_SENSOR,"sensor init setting error!!!!");
-							}
-							else
-							{
-									CAM_ERR(CAM_SENSOR,"sensor init setting success");
-									s_ctrl->setting_stat = CAM_SENSOR_SETTING_SUCCESS;
-							}
+						CAM_ERR(CAM_SENSOR,"sensor init setting error!!!!");
+					}
+					else
+					{
+						CAM_ERR(CAM_SENSOR,"sensor init setting success");
+						s_ctrl->setting_stat = CAM_SENSOR_SETTING_SUCCESS;
 					}
 				}
 				else{
 					CAM_ERR(CAM_SENSOR,"sensor already init setting !!!!");
 				}
 			}
+		}
 	}
 	else{
 		CAM_ERR(CAM_SENSOR,"sensor already power on!!");
