@@ -6,9 +6,6 @@
 #include "cam_cci_dev.h"
 #include "cam_cci_core.h"
 
-enum cam_cci_state_t cci_state_for_vsync = 0;
-
-
 static int cam_cci_init_master(struct cci_device *cci_dev,
 	enum cci_i2c_master_t master)
 {
@@ -189,7 +186,6 @@ int cam_cci_init(struct v4l2_subdev *sd,
 			base + CCI_I2C_M1_RD_THRESHOLD_ADDR);
 
 	cci_dev->cci_state = CCI_STATE_ENABLED;
-	cci_state_for_vsync = 1;
 
 	return 0;
 
@@ -437,7 +433,6 @@ int cam_cci_soc_release(struct cci_device *cci_dev,
 	}
 
 	cci_dev->cci_state = CCI_STATE_DISABLED;
-	cci_state_for_vsync = 0;
 	cci_dev->cycles_per_us = 0;
 
 	cam_cpas_stop(cci_dev->cpas_handle);

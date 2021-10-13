@@ -18,7 +18,7 @@ struct cam_ois_ctrl_t *o_ctrl_vsync = NULL;
 int64_t timestamp_ois;
 uint8_t *position_X_Y_timestamps=NULL;
 uint8_t data_for_vsync[28] = {0};
-extern enum cam_cci_state_t cci_state_for_vsync;
+
 
 typedef struct REGSETTING{
 	uint16_t reg ;
@@ -265,90 +265,87 @@ static void ois_vsync_function(struct work_struct *work)
 		CAM_ERR(CAM_OIS, "Invalid Args");
 		return;
 	}
-	if (cci_state_for_vsync)
-	{
-		total_bytes = sizeof(ois_fw_control[0]);
-			
-		i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
-		i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_WORD;
-		i2c_reg_setting.size = total_bytes;
-		i2c_reg_setting.delay = 0;
-
-		fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *	total_bytes) >> PAGE_SHIFT;
-		page = cma_alloc(dev_get_cma_area((o_ctrl_vsync->soc_info.dev)),fw_size, 0, GFP_KERNEL);
-		if (!page) {
-			CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
-			return;
-		}
-		i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *) (page_address(page));
+	total_bytes = sizeof(ois_fw_control[0]);
 		
-		i2c_reg_setting.reg_setting[0].reg_addr = 0x9DFC;
-		i2c_reg_setting.reg_setting[0].reg_data = 0x0A04;
-		i2c_reg_setting.reg_setting[0].delay = 1;
-		i2c_reg_setting.reg_setting[0].data_mask = 0;
-		//CAM_ERR(CAM_OIS, "write 0x9DFC -> 0x0A04");
-		rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
+	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+	i2c_reg_setting.size = total_bytes;
+	i2c_reg_setting.delay = 0;
 
-		i2c_reg_setting.reg_setting[0].reg_addr = 0x9B2C;
-		i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
-		i2c_reg_setting.reg_setting[0].delay = 1;
-		i2c_reg_setting.reg_setting[0].data_mask = 0;
-		//CAM_ERR(CAM_OIS, "write 0x9B2C -> 0x0001");
-		rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
-
-		i2c_reg_setting.reg_setting[0].reg_addr = 0x9B2A;
-		i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
-		i2c_reg_setting.reg_setting[0].delay = 1;
-		i2c_reg_setting.reg_setting[0].data_mask = 0;
-		//CAM_ERR(CAM_OIS, "write 0x9B2A -> 0x0001");
-		rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
-		
-		rc = camera_io_dev_read(&(o_ctrl_vsync->io_master_info),0x9B28,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-		//CAM_ERR(CAM_OIS, "read 0x9B28 -> 0x%x",cmd_data);
-
-		i2c_reg_setting.reg_setting[0].reg_addr = 0x9DFE;
-		i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
-		i2c_reg_setting.reg_setting[0].delay = 1;
-		i2c_reg_setting.reg_setting[0].data_mask = 0;
-		//CAM_ERR(CAM_OIS, "write 0x9DFE -> 0x0001");
-		rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
-		mdelay(1);
-		
-		rc = camera_io_dev_read_seq(&(o_ctrl_vsync->io_master_info),0x9DAC,position_X_Y_timestamps,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD,80);
-
-		data_for_vsync[0] = position_X_Y_timestamps[6];
-		data_for_vsync[1] = position_X_Y_timestamps[7];//6X
-		data_for_vsync[2] = position_X_Y_timestamps[8];
-		data_for_vsync[3] = position_X_Y_timestamps[9];//6Y
-		data_for_vsync[4] = position_X_Y_timestamps[22];
-		data_for_vsync[5] = position_X_Y_timestamps[23];//7X
-		data_for_vsync[6] = position_X_Y_timestamps[24];
-		data_for_vsync[7] = position_X_Y_timestamps[25];//7Y
-		data_for_vsync[8] = position_X_Y_timestamps[38];
-		data_for_vsync[9] = position_X_Y_timestamps[39];//8X
-		data_for_vsync[10] = position_X_Y_timestamps[40];
-		data_for_vsync[11] = position_X_Y_timestamps[41];//8Y
-		data_for_vsync[12] = position_X_Y_timestamps[54];
-		data_for_vsync[13] = position_X_Y_timestamps[55];//9X
-		data_for_vsync[14] = position_X_Y_timestamps[56];
-		data_for_vsync[15] = position_X_Y_timestamps[57];//9Y
-		data_for_vsync[16] = position_X_Y_timestamps[70];
-		data_for_vsync[17] = position_X_Y_timestamps[71];//10X
-		data_for_vsync[18] = position_X_Y_timestamps[72];
-		data_for_vsync[19] = position_X_Y_timestamps[73];//10Y
-		
-		data_for_vsync[20]  = (uint8_t)(timestamp_ois&0x00000000000000FF);
-		data_for_vsync[21]  = (uint8_t)((timestamp_ois&0x000000000000FF00)>>8);
-		data_for_vsync[22]  = (uint8_t)((timestamp_ois&0x0000000000FF0000)>>16);
-		data_for_vsync[23]  = (uint8_t)((timestamp_ois&0x00000000FF000000)>>24);
-		data_for_vsync[24]  = (uint8_t)((timestamp_ois&0x000000FF00000000)>>32);
-		data_for_vsync[25]  = (uint8_t)((timestamp_ois&0x0000FF0000000000)>>40);
-		data_for_vsync[26] = (uint8_t)((timestamp_ois&0x00FF000000000000)>>48);
-		data_for_vsync[27] = (uint8_t)((timestamp_ois&0xFF00000000000000)>>56);
-		
-		cma_release(dev_get_cma_area((o_ctrl_vsync->soc_info.dev)),	page, fw_size);
-		page = NULL;
+	fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *	total_bytes) >> PAGE_SHIFT;
+	page = cma_alloc(dev_get_cma_area((o_ctrl_vsync->soc_info.dev)),fw_size, 0, GFP_KERNEL);
+	if (!page) {
+		CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
+		return;
 	}
+	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *) (page_address(page));
+	
+	i2c_reg_setting.reg_setting[0].reg_addr = 0x9DFC;
+	i2c_reg_setting.reg_setting[0].reg_data = 0x0A04;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	//CAM_ERR(CAM_OIS, "write 0x9DFC -> 0x0A04");
+	rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
+
+	i2c_reg_setting.reg_setting[0].reg_addr = 0x9B2C;
+	i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	//CAM_ERR(CAM_OIS, "write 0x9B2C -> 0x0001");
+	rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
+
+	i2c_reg_setting.reg_setting[0].reg_addr = 0x9B2A;
+	i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	//CAM_ERR(CAM_OIS, "write 0x9B2A -> 0x0001");
+	rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
+	
+	rc = camera_io_dev_read(&(o_ctrl_vsync->io_master_info),0x9B28,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
+	//CAM_ERR(CAM_OIS, "read 0x9B28 -> 0x%x",cmd_data);
+
+	i2c_reg_setting.reg_setting[0].reg_addr = 0x9DFE;
+	i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
+	i2c_reg_setting.reg_setting[0].delay = 1;
+	i2c_reg_setting.reg_setting[0].data_mask = 0;
+	//CAM_ERR(CAM_OIS, "write 0x9DFE -> 0x0001");
+	rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
+	mdelay(1);
+	
+	rc = camera_io_dev_read_seq(&(o_ctrl_vsync->io_master_info),0x9DAC,position_X_Y_timestamps,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD,80);
+
+	data_for_vsync[0] = position_X_Y_timestamps[6];
+	data_for_vsync[1] = position_X_Y_timestamps[7];//6X
+	data_for_vsync[2] = position_X_Y_timestamps[8];
+	data_for_vsync[3] = position_X_Y_timestamps[9];//6Y
+	data_for_vsync[4] = position_X_Y_timestamps[22];
+	data_for_vsync[5] = position_X_Y_timestamps[23];//7X
+	data_for_vsync[6] = position_X_Y_timestamps[24];
+	data_for_vsync[7] = position_X_Y_timestamps[25];//7Y
+	data_for_vsync[8] = position_X_Y_timestamps[38];
+	data_for_vsync[9] = position_X_Y_timestamps[39];//8X
+	data_for_vsync[10] = position_X_Y_timestamps[40];
+	data_for_vsync[11] = position_X_Y_timestamps[41];//8Y
+	data_for_vsync[12] = position_X_Y_timestamps[54];
+	data_for_vsync[13] = position_X_Y_timestamps[55];//9X
+	data_for_vsync[14] = position_X_Y_timestamps[56];
+	data_for_vsync[15] = position_X_Y_timestamps[57];//9Y
+	data_for_vsync[16] = position_X_Y_timestamps[70];
+	data_for_vsync[17] = position_X_Y_timestamps[71];//10X
+	data_for_vsync[18] = position_X_Y_timestamps[72];
+	data_for_vsync[19] = position_X_Y_timestamps[73];//10Y
+	
+	data_for_vsync[20]  = (uint8_t)(timestamp_ois&0x00000000000000FF);
+	data_for_vsync[21]  = (uint8_t)((timestamp_ois&0x000000000000FF00)>>8);
+	data_for_vsync[22]  = (uint8_t)((timestamp_ois&0x0000000000FF0000)>>16);
+	data_for_vsync[23]  = (uint8_t)((timestamp_ois&0x00000000FF000000)>>24);
+	data_for_vsync[24]  = (uint8_t)((timestamp_ois&0x000000FF00000000)>>32);
+	data_for_vsync[25]  = (uint8_t)((timestamp_ois&0x0000FF0000000000)>>40);
+	data_for_vsync[26] = (uint8_t)((timestamp_ois&0x00FF000000000000)>>48);
+	data_for_vsync[27] = (uint8_t)((timestamp_ois&0xFF00000000000000)>>56);
+	
+	cma_release(dev_get_cma_area((o_ctrl_vsync->soc_info.dev)),	page, fw_size);
+	page = NULL;
 
 }
 
