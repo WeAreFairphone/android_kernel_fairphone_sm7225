@@ -8,28 +8,6 @@
 #include "cam_ois_soc.h"
 #include "cam_ois_core.h"
 #include "cam_debug_util.h"
-#include <linux/timer.h>
-#include <linux/timex.h>
-#include <linux/rtc.h>
-#include <linux/timekeeping.h>
-#include <linux/dma-contiguous.h>
-
-struct cam_ois_ctrl_t *o_ctrl_vsync = NULL;
-int64_t timestamp_ois;
-uint8_t *position_X_Y_timestamps=NULL;
-uint8_t data_for_vsync[28] = {0};
-
-
-typedef struct REGSETTING{
-	uint16_t reg ;
-	uint16_t val ;
-}REGSETTING ;
-
-const REGSETTING ois_fw_control[]= {
-	{0x9b2c ,0x0001} ,//[0]
-};
-
-
 
 static long cam_ois_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
@@ -195,159 +173,12 @@ static int cam_ois_init_subdev_param(struct cam_ois_ctrl_t *o_ctrl)
 	return rc;
 }
 
-ssize_t ois_timestamps_position_show(struct device *dev, struct device_attribute *attr, char *buf){
-
-	int i = 0, len = 0;
-
-	for( i = 0; i < 28; i++)
-		len += sprintf(buf + len, "0x%x,", data_for_vsync[i]);
-	len +=sprintf(buf + len , "\n");
-
-	return len;
-
-}
-
 DEVICE_ATTR(ois_gyro_cali_data, 0664, ois_gyro_cali_data_show, ois_gyro_cali_data_store);
 DEVICE_ATTR(ois_position_data, 0664, ois_position_data_show, ois_position_data_store);
 DEVICE_ATTR(ois_status, 0664, ois_status_show, ois_status_store);
 DEVICE_ATTR(ois_reg, 0664, ois_reg_show, ois_reg_store);
 DEVICE_ATTR(ois_init_before_sr_test, 0664, ois_init_before_sr_test_show, ois_init_before_sr_test_store);
 DEVICE_ATTR(ois_gain_set, 0664, ois_gain_set_show, ois_gain_set_store);
-DEVICE_ATTR(ois_timestamps_position_data, 0664, ois_timestamps_position_show, NULL);
-
-
-static int cml_vsync_pinctrl_init(struct cam_ois_ctrl_t *o_ctrl)
-{
-	int retval = 0;
-
-	/* Get pinctrl if target uses pinctrl */
-	o_ctrl->vsync_pinctrl = devm_pinctrl_get((o_ctrl->pdev->dev.parent));
-	if (IS_ERR_OR_NULL(o_ctrl->vsync_pinctrl)) {
-		retval = PTR_ERR(o_ctrl->vsync_pinctrl);
-		CAM_ERR(CAM_OIS, "Target does not use pinctrl %d\n", retval);
-		goto err_pinctrl_get;
-	}
-	
-	o_ctrl->pin_default = pinctrl_lookup_state(o_ctrl->vsync_pinctrl, "default");
-	if (IS_ERR_OR_NULL(o_ctrl->pin_default)) {
-		retval = PTR_ERR(o_ctrl->pin_default);
-		CAM_ERR(CAM_OIS, "Failed to look up default state\n");
-		goto err_pinctrl_lookup;
-	}
-
-	return retval;
-
-err_pinctrl_lookup:
-	devm_pinctrl_put(o_ctrl->vsync_pinctrl);
-err_pinctrl_get:
-	o_ctrl->vsync_pinctrl = NULL;
-	return retval;
-}
-
-irqreturn_t interrupt_ois_vsync_irq(int irq, void *dev)
-{
-	timestamp_ois = ktime_get_real_ns();
-	queue_work(o_ctrl_vsync->ois_vsync_wq, &o_ctrl_vsync->ois_vsync_work);
-
-	return IRQ_HANDLED;
-}
-
-static void ois_vsync_function(struct work_struct *work)
-{
-	uint16_t                           total_bytes = 0;
-	int32_t                            rc = 0;
-	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
-	struct page                       *page = NULL;
-  	uint32_t                           fw_size;
-	uint32_t cmd_data=0;
-
-	if (!o_ctrl_vsync) {
-		CAM_ERR(CAM_OIS, "Invalid Args");
-		return;
-	}
-	total_bytes = sizeof(ois_fw_control[0]);
-		
-	i2c_reg_setting.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
-	i2c_reg_setting.data_type = CAMERA_SENSOR_I2C_TYPE_WORD;
-	i2c_reg_setting.size = total_bytes;
-	i2c_reg_setting.delay = 0;
-
-	fw_size = PAGE_ALIGN(sizeof(struct cam_sensor_i2c_reg_array) *	total_bytes) >> PAGE_SHIFT;
-	page = cma_alloc(dev_get_cma_area((o_ctrl_vsync->soc_info.dev)),fw_size, 0, GFP_KERNEL);
-	if (!page) {
-		CAM_ERR(CAM_OIS, "Failed in allocating i2c_array");
-		return;
-	}
-	i2c_reg_setting.reg_setting = (struct cam_sensor_i2c_reg_array *) (page_address(page));
-	
-	i2c_reg_setting.reg_setting[0].reg_addr = 0x9DFC;
-	i2c_reg_setting.reg_setting[0].reg_data = 0x0A04;
-	i2c_reg_setting.reg_setting[0].delay = 1;
-	i2c_reg_setting.reg_setting[0].data_mask = 0;
-	CAM_ERR(CAM_OIS, "write 0x9DFC -> 0x0A04");
-	rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
-
-	i2c_reg_setting.reg_setting[0].reg_addr = 0x9B2C;
-	i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
-	i2c_reg_setting.reg_setting[0].delay = 1;
-	i2c_reg_setting.reg_setting[0].data_mask = 0;
-	CAM_ERR(CAM_OIS, "write 0x9B2C -> 0x0001");
-	rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
-
-	i2c_reg_setting.reg_setting[0].reg_addr = 0x9B2A;
-	i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
-	i2c_reg_setting.reg_setting[0].delay = 1;
-	i2c_reg_setting.reg_setting[0].data_mask = 0;
-	CAM_ERR(CAM_OIS, "write 0x9B2A -> 0x0001");
-	rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
-	
-	rc = camera_io_dev_read(&(o_ctrl_vsync->io_master_info),0x9B28,&cmd_data,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD);
-	CAM_ERR(CAM_OIS, "read 0x9B28 -> 0x%x",cmd_data);
-
-	i2c_reg_setting.reg_setting[0].reg_addr = 0x9DFE;
-	i2c_reg_setting.reg_setting[0].reg_data = 0X0001;
-	i2c_reg_setting.reg_setting[0].delay = 1;
-	i2c_reg_setting.reg_setting[0].data_mask = 0;
-	CAM_ERR(CAM_OIS, "write 0x9DFE -> 0x0001");
-	rc = camera_io_dev_write(&(o_ctrl_vsync->io_master_info), &i2c_reg_setting);
-	mdelay(1);
-	
-	rc = camera_io_dev_read_seq(&(o_ctrl_vsync->io_master_info),0x9DAC,position_X_Y_timestamps,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD,80);
-
-	data_for_vsync[0] = position_X_Y_timestamps[6];
-	data_for_vsync[1] = position_X_Y_timestamps[7];//6X
-	data_for_vsync[2] = position_X_Y_timestamps[8];
-	data_for_vsync[3] = position_X_Y_timestamps[9];//6Y
-	data_for_vsync[4] = position_X_Y_timestamps[22];
-	data_for_vsync[5] = position_X_Y_timestamps[23];//7X
-	data_for_vsync[6] = position_X_Y_timestamps[24];
-	data_for_vsync[7] = position_X_Y_timestamps[25];//7Y
-	data_for_vsync[8] = position_X_Y_timestamps[38];
-	data_for_vsync[9] = position_X_Y_timestamps[39];//8X
-	data_for_vsync[10] = position_X_Y_timestamps[40];
-	data_for_vsync[11] = position_X_Y_timestamps[41];//8Y
-	data_for_vsync[12] = position_X_Y_timestamps[54];
-	data_for_vsync[13] = position_X_Y_timestamps[55];//9X
-	data_for_vsync[14] = position_X_Y_timestamps[56];
-	data_for_vsync[15] = position_X_Y_timestamps[57];//9Y
-	data_for_vsync[16] = position_X_Y_timestamps[70];
-	data_for_vsync[17] = position_X_Y_timestamps[71];//10X
-	data_for_vsync[18] = position_X_Y_timestamps[72];
-	data_for_vsync[19] = position_X_Y_timestamps[73];//10Y
-	
-	data_for_vsync[20]  = (uint8_t)(timestamp_ois&0x00000000000000FF);
-	data_for_vsync[21]  = (uint8_t)((timestamp_ois&0x000000000000FF00)>>8);
-	data_for_vsync[22]  = (uint8_t)((timestamp_ois&0x0000000000FF0000)>>16);
-	data_for_vsync[23]  = (uint8_t)((timestamp_ois&0x00000000FF000000)>>24);
-	data_for_vsync[24]  = (uint8_t)((timestamp_ois&0x000000FF00000000)>>32);
-	data_for_vsync[25]  = (uint8_t)((timestamp_ois&0x0000FF0000000000)>>40);
-	data_for_vsync[26] = (uint8_t)((timestamp_ois&0x00FF000000000000)>>48);
-	data_for_vsync[27] = (uint8_t)((timestamp_ois&0xFF00000000000000)>>56);
-	
-	cma_release(dev_get_cma_area((o_ctrl_vsync->soc_info.dev)),	page, fw_size);
-	page = NULL;
-
-}
 
 static int cam_ois_i2c_driver_probe(struct i2c_client *client,
 	 const struct i2c_device_id *id)
@@ -490,31 +321,7 @@ static int32_t cam_ois_platform_driver_probe(
 		CAM_ERR(CAM_OIS, "failed: soc init rc %d", rc);
 		goto free_soc;
 	}
-	
-	rc = cml_vsync_pinctrl_init(o_ctrl);
-	if (!rc && o_ctrl->vsync_pinctrl) {
-		rc = pinctrl_select_state(
-				o_ctrl->vsync_pinctrl,
-				o_ctrl->pin_default);
-		if (rc < 0) {
-			CAM_ERR(CAM_OIS, "Can't select pinctrl state\n");
-		}
-	}
 
-	o_ctrl->ois_vsync_wq= create_singlethread_workqueue("ois_vsync_wq");
-	INIT_WORK(&o_ctrl->ois_vsync_work, ois_vsync_function);
-	queue_work(o_ctrl->ois_vsync_wq, &o_ctrl->ois_vsync_work);
-
-	rc = request_irq(gpio_to_irq(o_ctrl->irq_gpio), interrupt_ois_vsync_irq, IRQ_TYPE_EDGE_RISING , "ois_vsync_work", &o_ctrl->soc_info.dev);
-	if(rc < 0)
-	{
-	
-		CAM_ERR(CAM_OIS, "request_irq failed\n");
-		goto exit_free_gpio;
-	}
-    enable_irq_wake(gpio_to_irq(o_ctrl->irq_gpio));
-
-	
 	rc = cam_ois_init_subdev_param(o_ctrl);
 	if (rc)
 		goto free_soc;
@@ -523,7 +330,6 @@ static int32_t cam_ois_platform_driver_probe(
 		(device_create_file(&pdev->dev, &dev_attr_ois_position_data))   ||
 		(device_create_file(&pdev->dev, &dev_attr_ois_status))			||
 		(device_create_file(&pdev->dev, &dev_attr_ois_reg))				||
-		(device_create_file(&pdev->dev, &dev_attr_ois_timestamps_position_data))				||
 		(device_create_file(&pdev->dev, &dev_attr_ois_gain_set))			||
 		(device_create_file(&pdev->dev, &dev_attr_ois_init_before_sr_test)))
 	{
@@ -540,16 +346,8 @@ static int32_t cam_ois_platform_driver_probe(
 	platform_set_drvdata(pdev, o_ctrl);
 	o_ctrl->cam_ois_state = CAM_OIS_INIT;
 	o_ctrl->open_cnt = 0;
-	
-	o_ctrl_vsync = o_ctrl;
-	position_X_Y_timestamps = (uint8_t *)
-		vzalloc(80 * sizeof(uint8_t));
-	timestamp_ois = 0;
 
 	return rc;
-	
-exit_free_gpio:
-	gpio_free(o_ctrl->irq_gpio);
 unreg_subdev:
 	cam_unregister_subdev(&(o_ctrl->v4l2_dev_str));
 free_soc:
@@ -579,7 +377,6 @@ static int cam_ois_platform_driver_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_ois_status);
 	device_remove_file(&pdev->dev, &dev_attr_ois_position_data);
 	device_remove_file(&pdev->dev, &dev_attr_ois_reg);
-	device_remove_file(&pdev->dev, &dev_attr_ois_timestamps_position_data);
 	device_remove_file(&pdev->dev, &dev_attr_ois_gain_set);
 	device_remove_file(&pdev->dev, &dev_attr_ois_init_before_sr_test);
 	CAM_ERR(CAM_OIS, " device_remove_file node");
