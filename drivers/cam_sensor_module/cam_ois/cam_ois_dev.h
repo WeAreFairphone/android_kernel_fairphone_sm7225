@@ -119,11 +119,6 @@ struct cam_ois_ctrl_t {
 	enum msm_camera_device_type_t ois_device_type;
 	enum cam_ois_state cam_ois_state;
 	char ois_name[32];
-	int irq_gpio;
-	struct pinctrl		 *vsync_pinctrl;
-	struct pinctrl_state	 *pin_default;
-	struct workqueue_struct *ois_vsync_wq;
-	struct work_struct ois_vsync_work;
 	uint8_t ois_fw_flag;
 	uint8_t is_ois_calib;
 	struct cam_ois_opcode opcode;

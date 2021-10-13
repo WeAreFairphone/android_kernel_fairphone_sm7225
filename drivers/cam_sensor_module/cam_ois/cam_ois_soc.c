@@ -113,30 +113,6 @@ int cam_ois_driver_soc_init(struct cam_ois_ctrl_t *o_ctrl)
 		CAM_DBG(CAM_OIS, "cci-device %d", o_ctrl->cci_num, rc);
 
 	}
-	o_ctrl->irq_gpio = of_get_named_gpio(of_node, "interrupt-gpios", 0);
-	if (o_ctrl->irq_gpio < 0)
-	{
-	
-		CAM_DBG(CAM_OIS, "Looking up %s property failed. rc =  %d\n",
-			"interrupt-gpios", o_ctrl->irq_gpio);
-	}
-	else
-	{
-		rc = gpio_request(o_ctrl->irq_gpio, "OIS_VSYNC_INTERRUPT");
-		if (rc)
-		{
-			CAM_DBG(CAM_OIS, "Failed to request gpio %d,rc = %d",
-				o_ctrl->irq_gpio, rc);
-		}
-		rc = gpio_direction_input(o_ctrl->irq_gpio);
-		if (rc)
-		{
-		
-			CAM_DBG(CAM_OIS, "Unable to set direction for irq gpio [%d]\n",
-				o_ctrl->irq_gpio);
-			gpio_free(o_ctrl->irq_gpio);
-		}
-	}
 
 	rc = cam_ois_get_dt_data(o_ctrl);
 	if (rc < 0)
