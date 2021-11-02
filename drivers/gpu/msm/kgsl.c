@@ -2025,6 +2025,13 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	long result;
 	unsigned int i = 0;
 
+       /*
+        * Make sure we don't overflow count. Couple of drawobjs are reserved:
+        * One drawobj for timestamp sync and another for aux command sync.
+        */
+       if (param->numcmds > (UINT_MAX - 2))
+               return -EINVAL;
+
 	type = _process_command_input(device, param->flags, param->numcmds,
 			param->numobjs, param->numsyncs);
 	if (!type)
