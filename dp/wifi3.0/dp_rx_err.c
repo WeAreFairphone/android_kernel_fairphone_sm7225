@@ -1142,6 +1142,22 @@ dp_rx_null_q_desc_handle(struct dp_soc *soc, qdf_nbuf_t nbuf,
 			/* IEEE80211_SEQ_MAX indicates invalid start_seq */
 	}
 
+       eh = (qdf_ether_header_t *)qdf_nbuf_data(nbuf);
+
+       if (peer && !peer->authorize) {
+               bool is_eapol = qdf_nbuf_is_ipv4_eapol_pkt(nbuf) ||
+                               qdf_nbuf_is_ipv4_wapi_pkt(nbuf);
+
+               bool is_not_match = qdf_mem_cmp(eh->ether_dhost,
+                                               &vdev->mac_addr.raw[0],
+                                               QDF_MAC_ADDR_SIZE);
+
+               if (!is_eapol)
+                       goto drop_nbuf;
+               else if(is_not_match)
+                       goto drop_nbuf;
+       }
+
 	if (qdf_unlikely(vdev->rx_decap_type == htt_cmn_pkt_type_raw)) {
 		qdf_nbuf_set_next(nbuf, NULL);
 		dp_rx_deliver_raw(vdev, nbuf, peer);
