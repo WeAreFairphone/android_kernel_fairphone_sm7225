@@ -28,8 +28,8 @@
 
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "qg-batterydata-atl436186020H_3780mAh.dtsi"
-		#include "qg-batterydata-atl466271_3300mAh.dtsi"
+		//#include "qg-batterydata-atl436186020H_3780mAh.dtsi"
+		//#include "qg-batterydata-atl466271_3300mAh.dtsi"
 	};
 };
 

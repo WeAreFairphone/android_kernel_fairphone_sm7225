@@ -778,7 +778,8 @@
 
 	qcom,rmtfs_sharedmem@0 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x0 0x280000>;
+		/* FP4-917, change size 0x280000 (2.5MB) to 0x600000 (6MB), liquan.zhou.t2m */
+		reg = <0x0 0x600000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 		qcom,guard-memory;
@@ -3805,15 +3806,15 @@
 };
 
 &L1P {
-	regulator-max-microvolt = <1056000>;
+	regulator-max-microvolt = <1200000>;
 	/* Reduced the headroom by 16mV for AHC */
-	qcom,min-dropout-voltage = <209000>;
+	qcom,min-dropout-voltage = <110000>;
 };
 
 &L2P {
-	regulator-max-microvolt = <1104000>;
+	regulator-max-microvolt = <1200000>;
 	/* Reduced the headroom by 16mV for AHC */
-	qcom,min-dropout-voltage = <209000>;
+	qcom,min-dropout-voltage = <110000>;
 };
 
 &L3P {
@@ -3827,7 +3828,7 @@
 };
 
 &L5P {
-	regulator-max-microvolt = <2800000>;
+	regulator-max-microvolt = <2900000>;
 	qcom,min-dropout-voltage = <300000>;
 };
 
@@ -3838,7 +3839,7 @@
 };
 
 &L7P {
-	regulator-max-microvolt = <2800000>;
+	regulator-max-microvolt = <3140000>;
 	qcom,min-dropout-voltage = <120000>;
 };
 

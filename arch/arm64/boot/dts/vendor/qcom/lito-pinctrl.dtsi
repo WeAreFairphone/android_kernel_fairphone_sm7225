@@ -972,13 +972,15 @@
 			nfc_int_active: nfc_int_active {
 				/* active state */
 				mux {
-					/* GPIO 34 NFC Read Interrupt */
-					pins = "gpio34";
+					/* MODIFIED-BEGIN by zhangjie, 2020-12-14,BUG-10277814*/
+					/* GPIO 9 NFC Read Interrupt */
+					pins = "gpio9";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio34";
+					pins = "gpio9";
+					/* MODIFIED-END by zhangjie,BUG-10277814*/
 					drive-strength = <2>; /* 2 MA */
 					bias-pull-up;
 				};
@@ -987,13 +989,15 @@
 			nfc_int_suspend: nfc_int_suspend {
 				/* sleep state */
 				mux {
-					/* GPIO 34 NFC Read Interrupt */
-					pins = "gpio34";
+					/* MODIFIED-BEGIN by zhangjie, 2020-12-14,BUG-10277814*/
+					/* GPIO 9 NFC Read Interrupt */
+					pins = "gpio9";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio34";
+					pins = "gpio9";
+					/* MODIFIED-END by zhangjie,BUG-10277814*/
 					drive-strength = <2>; /* 2 MA */
 					bias-pull-up;
 				};
@@ -1002,13 +1006,15 @@
 			nfc_enable_active: nfc_enable_active {
 				/* active state */
 				mux {
-					/* 12: Enable 35: Firmware */
-					pins = "gpio12", "gpio35";
+					/* MODIFIED-BEGIN by zhangjie, 2020-12-14,BUG-10277814*/
+					/* 6: Enable 8: Firmware */
+					pins = "gpio6", "gpio8";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio12", "gpio35";
+					pins = "gpio6", "gpio8";
+					/* MODIFIED-END by zhangjie,BUG-10277814*/
 					drive-strength = <2>; /* 2 MA */
 					bias-pull-up;
 				};
@@ -1017,8 +1023,10 @@
 			nfc_enable_suspend: nfc_enable_suspend {
 				/* sleep state */
 				mux {
-					/* 12: Enable 35: Firmware */
-					pins = "gpio12", "gpio35";
+					/* MODIFIED-BEGIN by zhangjie, 2020-12-14,BUG-10277814*/
+					/* 6: Enable 8: Firmware */
+					pins = "gpio6", "gpio8";
+					/* MODIFIED-END by zhangjie,BUG-10277814*/
 					function = "gpio";
 				};
 
