@@ -89,5 +89,18 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 		};
+
+		pmk8350_clkdiv: clock-controller@5e00 {
+			compatible = "qcom,spmi-clkdiv";
+			status = "ok";
+			reg = <0x5e00 0x100>;
+			#clock-cells = <1>;
+			qcom,num-clkdivs = <1>;
+			clock-output-names = "pmk8350_div_clk1";
+			clocks = <&rpmhcc RPMH_CXO_CLK>;
+			clock-names = "xo";
+			assigned-clocks = <&pmk8350_clkdiv 1>;
+			assigned-clock-rates = <19200000>;
+		};
 	};
 };

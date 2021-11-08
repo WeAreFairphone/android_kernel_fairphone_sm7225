@@ -233,7 +233,7 @@
 		dma-names = "tx", "rx";
 		status = "disabled";
 	};
-
+#if 0 // MODIFIED by yixiang.wu, 2021-01-05,BUG-10277816
 	qupv3_se7_2uart: qcom,qup_uart@984000 {
 		compatible = "qcom,msm-geni-console";
 		reg = <0x984000 0x4000>;
@@ -249,7 +249,7 @@
 		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
-
+#endif // MODIFIED by yixiang.wu, 2021-01-05,BUG-10277816
 	qupv3_se7_i2c: i2c@984000 {
 		compatible = "qcom,i2c-geni";
 		reg = <0x984000 0x4000>;

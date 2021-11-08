@@ -1,0 +1,367 @@
+#include "lagoon-mtp.dtsi"
+#include "dsi-panel-ft8716u-1080p-video.dtsi"
+
+&mtp_batterydata {
+    #include "qg-batterydata-n10-veken-4360mah.dtsi"
+};
+
+
+
+
+&pm7250b_charger {
+    /delete-property/ qcom,fcc-stepping-enable;
+    status = "ok";
+    io-channels = <&pm7250b_vadc ADC_USB_IN_V_16>,
+                  <&pm7250b_vadc ADC_USB_IN_I>,
+                  <&pm7250b_vadc ADC_CHG_TEMP>,
+                  <&pm7250b_vadc ADC_DIE_TEMP>,
+                  <&pm7250b_vadc ADC_AMUX_THM3_PU2>,
+                  <&pm7250b_vadc ADC_SBUx>,
+                  <&pm7250b_vadc ADC_VPH_PWR>,
+                  <&pm7250b_vadc ADC_AMUX_THM1_PU2>,
+                  <&pm7250b_vadc ADC_INT_EXT_ISENSE_VBAT_VDATA>;
+    io-channel-names = "usb_in_voltage",
+                       "usb_in_current",
+                       "chg_temp",
+                       "die_temp",
+                       "conn_temp",
+                       "sbux_res",
+                       "vph_voltage",
+                       "skin_temp",
+                       "v_i_int_ext";
+    qcom,battery-data = <&mtp_batterydata>;
+    qcom,fv-max-uv = <4400000>;
+    qcom,fcc-max-ua = <3500000>;
+    qcom,otg-cl-ua = <1500000>;
+    qcom,wls-current-max-ua = <1300000>;
+    qcom,hvdcp2-max-icl-ua = <2000000>;
+    qcom,hvdcp3-max-icl-ua = <2200000>;
+    qcom,qc4-max-icl-ua = <2050000>;
+    qcom,chg-term-src = <1>;
+    qcom,chg-term-current-ma = <(-150)>;
+    qcom,sec-charger-config = <1>;
+    qcom,step-charging-enable;
+    qcom,sw-jeita-enable;
+    qcom,lpd-disable;
+    qcom,thermal-mitigation = <2000000 2000000 2000000 2000000
+                               1500000 1000000 500000>;
+    qcom,thermal-mitigation-lcdon = <2000000 2000000 2000000 2000000
+                               1500000 1000000 500000>;
+    qcom,disable-suspend-on-collapse;
+    qcom,charger-temp-max = <800>;
+    qcom,smb-temp-max = <800>;
+    qcom,float-option = <2>;
+    qcom,auto-recharge-soc = <99>;
+    qcom,suspend-input-on-debug-batt;
+    //qcom,en-skin-therm-mitigation;
+    qcom,smb-internal-pull-kohm = <0>;
+    qcom,hvdcp-disable;//zxzadd because vbus have ovp ic ,if over 6v vbus will be cut off
+};
+
+&pm7250b_qg {
+    status = "ok";
+    io-channels = <&pm7250b_vadc ADC_BAT_THERM_PU1>,
+                  <&pm7250b_vadc ADC_BAT_ID_PU2>;
+    qcom,battery-data = <&mtp_batterydata>;
+    qcom,vbatt-empty-mv = <3200>;
+    qcom,vbatt-low-mv = <3500>;
+    qcom,vbatt-cutoff-mv = <3400>;
+    qcom,fvss-vbatt-mv = <3500>;
+    qcom,qg-iterm-ma = <350>;
+    qcom,ignore-shutdown-soc-secs = <604800>;
+    qcom,shutdown-temp-diff = <150>;
+    qcom,shutdown_soc_threshold = <50>;
+    qcom,hold-soc-while-full;
+    qcom,linearize-soc;
+    //qcom,rbat-conn-mohm = <35>;
+    qcom,use-cp-iin-sns;
+};
+
+&smb1396_div2_cp_master {
+    qcom,max-cutoff-soc = <85>;
+};
+
+&smb1396_slave {
+    status = "disabled";
+};
+
+&smb1396_div2_cp_slave {
+    status = "disabled";
+};
+
+&eud {
+    status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+    status = "disabled";
+};
+
+&pm7250b_pdphy {
+    qcom,default-sink-caps = <5000 2000>, /* 5V @ 2A */
+                             <9000 1500>, /* 9V @ 1.5A */
+                             <10000 1500>; /* 10V @ 1.5A */
+};
+
+&usb0 {
+    extcon = <&pm7250b_pdphy>, <&pm7250b_charger>;
+    dwc3@a600000 {
+        maximum-speed = "high-speed";
+        usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
+    };
+};
+
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq =
+		/* <value reg_offset> */
+		<0x23 0x210 /* PWR_CTRL1 */
+		 0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+		 0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+		 0x80 0x2c  /* PLL_CMODE */
+		 0x0a 0x184 /* PLL_LOCK_DELAY */
+		 0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+		 0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+		 0x16 0x198 /* PLL_BIAS_CONTROL_2 */
+		 0x21 0x214 /* PWR_CTRL2 */
+		 0x08 0x220 /* IMP_CTRL1 */
+		 0x58 0x224 /* IMP_CTRL2 */
+		 0x47 0x240 /* TUNE1 */
+		 0x29 0x244 /* TUNE2 */
+		 0xca 0x248 /* TUNE3 */
+		 0x04 0x24c /* TUNE4 */
+		 0x03 0x250 /* TUNE5 */
+		 0x30 0x23c /* CHG_CTRL2 */
+		 0x22 0x210>; /* PWR_CTRL1 */
+
+	qcom,qusb-phy-host-init-seq =
+		/* <value reg_offset> */
+		<0x23 0x210 /* PWR_CTRL1 */
+		0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+		0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+		0x80 0x2c  /* PLL_CMODE */
+		0x0a 0x184 /* PLL_LOCK_DELAY */
+		0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+		0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+		0x16 0x198 /* PLL_BIAS_CONTROL_2 */
+		0x21 0x214 /* PWR_CTRL2 */
+		0x08 0x220 /* IMP_CTRL1 */
+		0x58 0x224 /* IMP_CTRL2 */
+		0x47 0x240 /* TUNE1 */
+		0x29 0x244 /* TUNE2 */
+		0xca 0x248 /* TUNE3 */
+		0x04 0x24c /* TUNE4 */
+		0x03 0x250 /* TUNE5 */
+		0x30 0x23c /* CHG_CTRL2 */
+		0x22 0x210>; /* PWR_CTRL1 */
+};
+
+&pm6150l_wled {
+	qcom,string-cfg = <3>;
+	qcom,fs-current-limit = <20000>;
+	status = "okay";
+};
+
+&pm6150l_lcdb {
+	status = "okay";
+};
+
+&pm6150a_amoled {
+ 	status = "disabled";
+};
+&dsi_ft8716u_1080_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <255>;
+	qcom,mdss-brightness-default-level = <167>;
+	qcom,platform-te-gpio = <&tlmm 23 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+		qcom,mdss-dsi-t-clk-post = <0x0e>;
+		qcom,mdss-dsi-t-clk-pre = <0x35>;
+	qcom,mdss-dsi-display-timings {
+		timing@0 {
+		qcom,mdss-dsi-panel-phy-timings = [00 1C 07 07 23 21 07 07 05 03 04 00];
+        	qcom,display-topology = <1 0 1>;
+		qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+
+&sde_dsi {
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
+	qcom,dsi-default-panel = <&dsi_ft8716u_1080_video>;
+};
+
+
+&qupv3_se8_i2c {
+
+	qcom,i2c-touch-active = "focaltech,fts";
+	status = "okay";
+	synaptics_tcm@20 {
+		status = "disabled";
+	};
+
+        focaltech@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <22 0x02>;
+		focaltech,reset-gpio = <&tlmm 21 0x01>;
+		focaltech,irq-gpio = <&tlmm 22 0x02>;
+		//vcc_i2c-supply = <&L11A>;
+	        //vdd-supply = <&L6A>;
+                //focaltech,irq-on-state = <0>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords =  <0 0 1080 1920>;
+		//focaltech,have-key;
+		//focaltech,key-number = <3>;
+		focaltech,keys = <139 102 158>;
+		focaltech,key-y-coord = <2000>;
+		focaltech,key-x-coords = <200 600 800>;
+	        //pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		//pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		//pinctrl-2 = <&ts_release>;
+                //focaltech,i2c-pull-up;
+
+		panel = <&dsi_ft8716u_1080_video>;
+
+           };
+};
+
+&lagoon_snd {
+	qcom,model = "lito-lagoon-n10-snd-card";
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>, <1>;
+	qcom,wcn-btfm = <1>;
+	qcom,ext-disp-audio-rx = <0>;
+	qcom,audio-routing =
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Analog Mic2",
+		"AMIC3", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic3",
+		"AMIC4", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic4",
+		"TX DMIC0", "MIC BIAS1",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"TX SWR_ADC0", "ADC1_OUTPUT",
+		"TX SWR_ADC2", "ADC2_OUTPUT",
+		"TX SWR_ADC3", "ADC3_OUTPUT",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"VA_AIF1 CAP", "VA_SWR_CLK",
+		"VA_AIF2 CAP", "VA_SWR_CLK",
+		"VA_AIF3 CAP", "VA_SWR_CLK",
+		"VA SWR_ADC0", "VA_SWR_CLK",
+		"VA SWR_ADC1", "VA_SWR_CLK",
+		"VA SWR_ADC2", "VA_SWR_CLK",
+		"VA SWR_ADC3", "VA_SWR_CLK",
+		"VA SWR_ADC0", "ADC1_OUTPUT",
+		"VA SWR_ADC2", "ADC2_OUTPUT",
+		"VA SWR_ADC3", "ADC3_OUTPUT";
+	qcom,msm-mbhc-hphl-swh = <1>;
+	qcom,msm-mbhc-gnd-swh = <1>;
+	/delete-property/ qcom,cdc-dmic01-gpios;
+	/delete-property/ qcom,cdc-dmic23-gpios;
+	/delete-property/ qcom,cdc-dmic45-gpios;
+	asoc-codec  = <&stub_codec>, <&bolero>;
+	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
+	qcom,wsa-max-devs = <0>;
+	/delete-property/ qcom,wsa-devs;
+	/delete-property/ qcom,wsa-aux-dev-prefix;
+	qcom,codec-max-aux-devs = <1>;
+	qcom,codec-aux-devs = <&wcd937x_codec>;
+	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
+				  <&lpi_tlmm>, <&bolero>;
+};
+&wcd937x_codec{
+    status = "ok";
+};
+&wcd938x_codec{
+    status = "disabled";
+};
+&wcd937x_rx_slave {
+	status = "ok";
+};
+
+&wcd937x_tx_slave {
+	status = "ok";
+};
+
+&wcd938x_tx_slave {
+	status = "disabled";
+};
+
+&wcd938x_rx_slave {
+	status = "disabled";
+};
+&cdc_dmic01_gpios{
+    status = "disabled";
+};
+
+&cdc_dmic23_gpios{
+    status = "disabled";
+};
+&cdc_dmic45_gpios{
+    status = "disabled";
+};
+&wsa883x_0221{
+    status = "disabled";
+};
+&wsa883x_0222{
+    status = "disabled";
+};
+
+/*aw881xx I2c is used gpio0 &gpio1 same as nfc in lagoon-pinctrl.dtsi */
+&qupv3_se0_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+    aw881xx_smartpa@34{
+        compatible = "awinic,aw881xx_smartpa";
+        reg = <0x43>;/*Virtual address, real address is 0x34*/
+        reset-gpio = <&tlmm 10 0>;
+        irq-gpio = <&tlmm 11 0>;
+        monitor-flag = <1>;
+        monitor-timer-val = <30000>;
+        status = "okay";
+    };
+};
+&dai_mi2s4 {
+    pinctrl-names = "default", "sleep";
+    pinctrl-0 = <&lpi_i2s1_sck_active &lpi_i2s1_ws_active
+                 &lpi_i2s1_sd0_active &lpi_i2s1_sd1_active>;
+    pinctrl-1 = <&lpi_i2s1_sck_sleep  &lpi_i2s1_ws_sleep
+                 &lpi_i2s1_sd0_sleep  &lpi_i2s1_sd1_sleep>;
+};
+
+&tlmm {
+	bq27541_hdq_active: bq27541_hdq_active{
+		mux {
+			pins = "gpio33";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio33";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+};
+
+&soc {
+	bq27541 {
+		compatible = "qcom,bq27541-fuel-hdq";
+		qcom,hdq-gpio = <&tlmm 33 0>;
+		pinctrl-names = "bq27541_hdq";
+		pinctrl-0 = <&bq27541_hdq_active>;
+		};
+};

@@ -222,10 +222,10 @@
 		qcom,cdc-vdd-mic-bias-voltage = <3296000 3296000>;
 		qcom,cdc-vdd-mic-bias-current = <30000>;
 
-		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <1800>;
-		qcom,cdc-micbias3-mv = <1800>;
-		qcom,cdc-micbias4-mv = <1800>;
+		qcom,cdc-micbias1-mv = <2700>;
+		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias3-mv = <2700>;
+		qcom,cdc-micbias4-mv = <2700>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-rxtx",
 					   "cdc-vddio",
