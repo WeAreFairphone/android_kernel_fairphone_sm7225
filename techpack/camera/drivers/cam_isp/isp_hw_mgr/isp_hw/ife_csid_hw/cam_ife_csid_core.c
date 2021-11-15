@@ -49,6 +49,8 @@
 /* factor to conver qtime to boottime */
 static int64_t qtime_to_boottime;
 
+uint64_t time_stamp_val_for_cm401 = 0;
+
 static int cam_ife_csid_reset_regs(
 	struct cam_ife_csid_hw *csid_hw, bool reset_hw);
 
@@ -3467,6 +3469,7 @@ static int cam_ife_csid_get_time_stamp(
 		time_stamp->time_stamp_val,
 		CAM_IFE_CSID_QTIMER_MUL_FACTOR,
 		CAM_IFE_CSID_QTIMER_DIV_FACTOR);
+	time_stamp_val_for_cm401 = time_stamp->time_stamp_val;
 
 	/* use a universal qtime-2-boottime offset for all cameras
 	 * this enables uniform timestamp comparision between cameras
