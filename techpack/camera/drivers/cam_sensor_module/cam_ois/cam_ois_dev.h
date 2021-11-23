@@ -55,6 +55,7 @@ struct cam_ois_dev
 	struct page *reg_setting_page;
 	uint8_t *reg_data_buffer;
 	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_setting_for_buffer0;
 	struct mutex dev_mutex;
 	wait_queue_head_t queue;
 };

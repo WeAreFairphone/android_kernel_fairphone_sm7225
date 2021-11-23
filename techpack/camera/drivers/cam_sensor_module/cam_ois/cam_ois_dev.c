@@ -241,10 +241,21 @@ enum SETTING_INDEX {
 static struct cam_sensor_i2c_reg_array ois_data_reader_setting[] =
 {
 	{0x9DFC, 0x0A04, 1, 0},
-	{0x9B2C, 0X0001, 1, 0},
-	{0x9B2A, 0X0001, 1, 0},
-	{0x9DFE, 0X0001, 1, 0},
+	{0x9B2C, 0x0001, 1, 0},
+	{0x9B2A, 0x0001, 1, 0},
+	{0x9DFE, 0x0001, 1, 0},
 };
+
+static int regDataOffset[] =
+{
+	86, 102, 118, 134, 150, 6, 22, 38, 54, 70
+};
+
+static struct cam_sensor_i2c_reg_array ois_data_reader_setting_for_buffer0[] =
+{
+	{0x9DFE, 0x0000, 1, 0},
+};
+
 static int32_t cam_ois_reg_setting_init(struct cam_ois_ctrl_t *o_ctrl)
 {
 	int32_t rc = 0, i = 0, item_num = 0;
@@ -273,6 +284,12 @@ static int32_t cam_ois_reg_setting_init(struct cam_ois_ctrl_t *o_ctrl)
 	pois_dev->i2c_reg_setting.data_type   = CAMERA_SENSOR_I2C_TYPE_WORD;
 	pois_dev->i2c_reg_setting.size        = item_num;
 	pois_dev->i2c_reg_setting.delay       = 0;
+
+	pois_dev->i2c_reg_setting_for_buffer0.reg_setting = ois_data_reader_setting_for_buffer0;
+	pois_dev->i2c_reg_setting_for_buffer0.addr_type   = CAMERA_SENSOR_I2C_TYPE_WORD;
+	pois_dev->i2c_reg_setting_for_buffer0.data_type   = CAMERA_SENSOR_I2C_TYPE_WORD;
+	pois_dev->i2c_reg_setting_for_buffer0.size        = 1;
+	pois_dev->i2c_reg_setting_for_buffer0.delay       = 0;
 
 	return rc;
 }
@@ -303,6 +320,9 @@ static int32_t load_ois_data(struct cam_ois_dev *pois_dev)
 	get_monotonic_boottime64(&ts);
 	pois_dev->load_ois_timestamp = time_stamp_val_for_cm401;
 	camera_io_dev_read_seq(&(o_ctrl->io_master_info),0x9DAC, pois_dev->reg_data_buffer,CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD,80);
+	camera_io_dev_write(&o_ctrl->io_master_info,&pois_dev->i2c_reg_setting_for_buffer0);
+	mdelay(1); /* for safe read data */
+	camera_io_dev_read_seq(&(o_ctrl->io_master_info),0x9DAC, &pois_dev->reg_data_buffer[80],CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD,80);
 	mutex_unlock(&(o_ctrl->ois_mutex));
 	return rc;
 }
@@ -621,10 +641,6 @@ static int c_ois_release(struct inode *inode,struct file *filp)
 	return 0;
 }
 
-static int regDataOffset[] =
-{
-	6, 22, 38, 54, 70,
-};
 static ssize_t c_ois_read(struct file *filp,char *buf,size_t len,loff_t *off)
 {
 	struct cam_ois_dev *pois_dev = (struct cam_ois_dev *)filp->private_data;
@@ -644,7 +660,7 @@ static ssize_t c_ois_read(struct file *filp,char *buf,size_t len,loff_t *off)
 	 * |1-byte| 8-byte  |    N-byte      |
 	 * |  N   |timestamp|   x,y data     |
 	 * */
-	data_num = 5; //we just read 5-data now
+	data_num = 10; //we just read 5-data now
 	if (copy_to_user(&buf[0], (void *)&data_num, 1))
 	{
 		rc = -EFAULT;
