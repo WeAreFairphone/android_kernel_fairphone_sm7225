@@ -304,6 +304,26 @@ static void cam_ois_reg_setting_uninit(struct cam_ois_ctrl_t *o_ctrl)
 	pois_dev->reg_page_size    = 0;
 }
 
+static int32_t reverse_byte(struct cam_ois_dev *pois_dev)
+{
+	int32_t rc = 0,i=0;
+	struct cam_ois_ctrl_t *o_ctrl = pois_dev->o_ctrl;
+	uint8_t tmp_data=0;
+
+	if (!pois_dev || !o_ctrl) {
+		CAM_ERR(CAM_OIS, "read failed: pois_dev: %p o_ctrl:%p", pois_dev, o_ctrl);
+		return -EINVAL;
+	}
+
+	for (i = 0;i<160;i+=2)
+	{
+		tmp_data = pois_dev->reg_data_buffer[i];
+		pois_dev->reg_data_buffer[i] = pois_dev->reg_data_buffer[i+1];
+		pois_dev->reg_data_buffer[i+1] = tmp_data;
+	}
+	return rc;
+}
+
 static int32_t load_ois_data(struct cam_ois_dev *pois_dev)
 {
 	int32_t rc = 0;
@@ -323,6 +343,7 @@ static int32_t load_ois_data(struct cam_ois_dev *pois_dev)
 	camera_io_dev_write(&o_ctrl->io_master_info,&pois_dev->i2c_reg_setting_for_buffer0);
 	mdelay(1); /* for safe read data */
 	camera_io_dev_read_seq(&(o_ctrl->io_master_info),0x9DAC, &pois_dev->reg_data_buffer[80],CAMERA_SENSOR_I2C_TYPE_WORD,CAMERA_SENSOR_I2C_TYPE_WORD,80);
+	reverse_byte(pois_dev);
 	mutex_unlock(&(o_ctrl->ois_mutex));
 	return rc;
 }
@@ -761,7 +782,7 @@ static int __init cam_ois_driver_init(void)
 
 	mutex_init(&(g_cam_ois_dev.dev_mutex));
 	init_waitqueue_head(&g_cam_ois_dev.queue);
-	g_cam_ois_dev.reg_data_buffer = (uint8_t *)vzalloc(80 * sizeof(uint8_t));
+	g_cam_ois_dev.reg_data_buffer = (uint8_t *)vzalloc(160 * sizeof(uint8_t));
 	g_cam_ois_dev.dev_state = CAM_OIS_DEV_INIT;
 	return rc;
 }
