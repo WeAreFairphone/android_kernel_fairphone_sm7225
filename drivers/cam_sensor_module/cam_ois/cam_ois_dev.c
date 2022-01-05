@@ -243,17 +243,17 @@ static struct cam_sensor_i2c_reg_array ois_data_reader_setting[] =
 	{0x9DFC, 0x0A04, 1, 0},
 	{0x9B2C, 0x0001, 1, 0},
 	{0x9B2A, 0x0001, 1, 0},
-	{0x9DFE, 0x0001, 1, 0},
+	{0x9DFE, 0x0000, 1, 0},
 };
 
 static int regDataOffset[] =
 {
-	86, 102, 118, 134, 150, 6, 22, 38, 54, 70
+	6, 22, 38, 54, 70, 86, 102, 118, 134, 150
 };
 
-static struct cam_sensor_i2c_reg_array ois_data_reader_setting_for_buffer0[] =
+static struct cam_sensor_i2c_reg_array ois_data_reader_setting_for_buffer1[] =
 {
-	{0x9DFE, 0x0000, 1, 0},
+	{0x9DFE, 0x0001, 1, 0},
 };
 
 static int32_t cam_ois_reg_setting_init(struct cam_ois_ctrl_t *o_ctrl)
@@ -285,7 +285,7 @@ static int32_t cam_ois_reg_setting_init(struct cam_ois_ctrl_t *o_ctrl)
 	pois_dev->i2c_reg_setting.size        = item_num;
 	pois_dev->i2c_reg_setting.delay       = 0;
 
-	pois_dev->i2c_reg_setting_for_buffer0.reg_setting = ois_data_reader_setting_for_buffer0;
+	pois_dev->i2c_reg_setting_for_buffer0.reg_setting = ois_data_reader_setting_for_buffer1;
 	pois_dev->i2c_reg_setting_for_buffer0.addr_type   = CAMERA_SENSOR_I2C_TYPE_WORD;
 	pois_dev->i2c_reg_setting_for_buffer0.data_type   = CAMERA_SENSOR_I2C_TYPE_WORD;
 	pois_dev->i2c_reg_setting_for_buffer0.size        = 1;
