@@ -3977,15 +3977,24 @@ static int smblib_get_prop_ufp_mode(struct smb_charger *chg)
 	}
 	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_1 = 0x%02x\n", stat);
 
+	/* config 0x154A to 0x17 */	
+	if (stat &(SNK_RP_STD_DAM_BIT | SNK_RP_1P5_DAM_BIT | SNK_RP_3P0_DAM_BIT)){
+    	smblib_masked_write(chg, TYPE_C_DEBUG_ACCESS_SINK_REG,TYPEC_DEBUG_ACCESS_SINK_MASK,0x17);	
+	}
+
 	switch (stat & DETECTED_SRC_TYPE_MASK) {
 	case SNK_RP_STD_BIT:
+	case SNK_RP_STD_DAM_BIT:
 		return POWER_SUPPLY_TYPEC_SOURCE_DEFAULT;
 	case SNK_RP_1P5_BIT:
+	case SNK_RP_1P5_DAM_BIT:
 		return POWER_SUPPLY_TYPEC_SOURCE_MEDIUM;
 	case SNK_RP_3P0_BIT:
+	case SNK_RP_3P0_DAM_BIT:
 		return POWER_SUPPLY_TYPEC_SOURCE_HIGH;
 	case SNK_RP_SHORT_BIT:
 		return POWER_SUPPLY_TYPEC_NON_COMPLIANT;
+/*
 	case SNK_DAM_500MA_BIT:
 	case SNK_DAM_1500MA_BIT:
 	case SNK_DAM_3000MA_BIT:
@@ -3994,6 +4003,7 @@ static int smblib_get_prop_ufp_mode(struct smb_charger *chg)
 #else
 		return POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY;
 #endif
+*/
 	default:
 		break;
 	}
