@@ -118,6 +118,10 @@ static int cam_ois_get_dev_handle(struct cam_ois_ctrl_t *o_ctrl,
 
 	ois_acq_dev.device_handle =
 		cam_create_device_hdl(&bridge_params);
+	if (ois_acq_dev.device_handle <= 0) {
+		CAM_ERR(CAM_OIS, "Can not create device handle");
+		return -EFAULT;
+	}
 	o_ctrl->bridge_intf.device_hdl = ois_acq_dev.device_handle;
 	o_ctrl->bridge_intf.session_hdl = ois_acq_dev.session_handle;
 
@@ -326,7 +330,7 @@ static int cam_ois_gyro_calibration(struct cam_ois_ctrl_t *o_ctrl)
 	int32_t                            rc = 0;
 	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
 	struct page                       *page = NULL;
-  	uint32_t                           fw_size;
+	uint32_t                           fw_size;
 	uint32_t cmd_adress=0,cmd_data=0;
 	uint32_t c=0,d=0;
 	float target_gain_X = 0.0;
