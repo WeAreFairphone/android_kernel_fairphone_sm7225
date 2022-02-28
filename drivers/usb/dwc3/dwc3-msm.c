@@ -3332,15 +3332,13 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 		mdwc->vbus_active = event;
 	}
 
-	/*
-	 * Drive a pulse on DP to ensure proper CDP detection
-	 * and only when the vbus connect event is a valid one.
-	 */
+#if !defined(CONFIG_TCT_PM7250_COMMON)
 	if (get_psy_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
-			mdwc->vbus_active && !mdwc->check_eud_state) {
+			mdwc->vbus_active) {
 		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
 		usb_phy_drive_dp_pulse(mdwc->hs_phy, DP_PULSE_WIDTH_MSEC);
 	}
+#endif
 
 	if (dwc3_is_otg_or_drd(dwc) && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
@@ -3652,6 +3650,23 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret = 0, size = 0, i;
 	u32 val;
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		if (dev && node && of_property_read_bool(node, "extcon")) {
+			struct extcon_dev *edev=NULL;
+			edev = extcon_get_edev_by_phandle(dev, 0);
+			if (IS_ERR(edev)) {
+				if (PTR_ERR(edev) == -EPROBE_DEFER) {
+					pr_err("Could not get extcon, deferring dwc3-msm probe\n");
+					return -EPROBE_DEFER;
+				} else {
+					pr_err("Could not get extcon(%ld), stop dwc3-msm probe\n", 
+							PTR_ERR(edev));
+					return PTR_ERR(edev);
+				}
+			}
+		}
+#endif
 
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc)
@@ -4228,8 +4243,11 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	}
 
 	if (on) {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		dev_err(mdwc->dev, "%s: turn on host\n", __func__);
+#else
 		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
-
+#endif
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StrtHost gync",
@@ -4312,7 +4330,11 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		schedule_delayed_work(&mdwc->perf_vote_work,
 				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 	} else {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		dev_err(mdwc->dev, "%s: turn off host\n", __func__);
+#else
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
+#endif
 
 		usb_unregister_atomic_notify(&mdwc->usbdev_nb);
 		if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
@@ -4388,8 +4410,13 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		atomic_read(&mdwc->dev->power.usage_count));
 
 	if (on) {
+#if defined(CONFIG_TCT_PM7250_COMMON)
+		dev_err(mdwc->dev, "%s: turn on gadget %s\n",
+					__func__, dwc->gadget.name);
+#else
 		dev_dbg(mdwc->dev, "%s: turn on gadget %s\n",
 					__func__, dwc->gadget.name);
+#endif
 
 		dwc3_override_vbus_status(mdwc, true);
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
@@ -4431,8 +4458,13 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		schedule_delayed_work(&mdwc->perf_vote_work,
 				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
 	} else {
+		#if defined(CONFIG_TCT_PM7250_COMMON)
+		dev_err(mdwc->dev, "%s: turn off gadget %s\n",
+					__func__, dwc->gadget.name);
+		#else
 		dev_dbg(mdwc->dev, "%s: turn off gadget %s\n",
 					__func__, dwc->gadget.name);
+		#endif
 		cancel_delayed_work_sync(&mdwc->perf_vote_work);
 		msm_dwc3_perf_vote_update(mdwc, false);
 		pm_qos_remove_request(&mdwc->pm_qos_req_dma);

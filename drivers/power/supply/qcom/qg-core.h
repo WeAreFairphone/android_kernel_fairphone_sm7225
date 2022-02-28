@@ -69,6 +69,9 @@ struct qg_dt {
 	bool			qg_ext_sense;
 	bool			use_cp_iin_sns;
 	bool			use_s7_ocv;
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	bool			tt_enabled;
+#endif
 	bool			qg_sleep_config;
 	bool			qg_fast_chg_cfg;
 	bool			fvss_enable;
@@ -108,6 +111,11 @@ struct qpnp_qg {
 	struct mutex		data_lock;
 	struct mutex		soc_lock;
 	wait_queue_head_t	qg_wait_q;
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+	struct wakeup_source	*qg_ws;
+#endif
+
 	struct votable		*awake_votable;
 	struct votable		*vbatt_irq_disable_votable;
 	struct votable		*fifo_irq_disable_votable;

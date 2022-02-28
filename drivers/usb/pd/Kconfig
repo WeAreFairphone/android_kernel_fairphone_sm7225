@@ -28,4 +28,15 @@ config QPNP_USB_PDPHY
 	  The is used to handle the PHY layer communication of the
 	  Power Delivery stack.
 
+# Jin.wang added here to enable different usbpd logs level
+config USB_PD_LOG_LVL
+	int "USBPD Log level(0,3)"
+	range 0 3
+	default 1
+	help
+          enable different log level for usbpd debug. 0 for no logs,
+          1 for error logs only, 2 for debug logs only(no error log),
+          3 for all logs.
+# Jin.wang added done.
+
 endmenu

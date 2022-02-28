@@ -470,6 +470,7 @@ struct fastrpc_file {
 	struct mutex perf_mutex;
 	struct pm_qos_request pm_qos_req;
 	int qos_request;
+	struct mutex pm_qos_mutex;
 	struct mutex map_mutex;
 	struct mutex internal_map_mutex;
 	/* Identifies the device (MINOR_NUM_DEV / MINOR_NUM_SECURE_DEV) */
@@ -2666,7 +2667,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (!init->filelen)
 			goto bail;
 
-		proc_name = kzalloc(init->filelen, GFP_KERNEL);
+		proc_name = kzalloc(init->filelen + 1, GFP_KERNEL);
 		VERIFY(err, !IS_ERR_OR_NULL(proc_name));
 		if (err)
 			goto bail;
@@ -3305,13 +3306,15 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 		err = -EINVAL;
 		goto bail;
 	}
-	VERIFY(err, !fastrpc_munmap_on_dsp(fl, map->raddr,
-			map->phys, map->size, map->flags));
-	if (err)
-		goto bail;
-	mutex_lock(&fl->map_mutex);
-	fastrpc_mmap_free(map, 0);
-	mutex_unlock(&fl->map_mutex);
+	if (map) {
+		VERIFY(err, !fastrpc_munmap_on_dsp(fl, map->raddr,
+					map->phys, map->size, map->flags));
+		if (err)
+			goto bail;
+		mutex_lock(&fl->map_mutex);
+		fastrpc_mmap_free(map, 0);
+		mutex_unlock(&fl->map_mutex);
+	}
 bail:
 	if (err && map) {
 		mutex_lock(&fl->map_mutex);
@@ -3719,6 +3722,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	mutex_unlock(&fl->perf_mutex);
 	mutex_destroy(&fl->perf_mutex);
 	mutex_destroy(&fl->map_mutex);
+	mutex_destroy(&fl->pm_qos_mutex);
 	mutex_destroy(&fl->internal_map_mutex);
 	kfree(fl);
 	return 0;
@@ -4083,6 +4087,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	hlist_add_head(&fl->hn, &me->drivers);
 	spin_unlock(&me->hlock);
 	mutex_init(&fl->perf_mutex);
+	mutex_init(&fl->pm_qos_mutex);
 	return 0;
 }
 
@@ -4209,6 +4214,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		fl->pm_qos_req.type = PM_QOS_REQ_AFFINE_CORES;
 		cpumask_copy(&fl->pm_qos_req.cpus_affine, &mask);
 
+		mutex_lock(&fl->pm_qos_mutex);
 		if (!fl->qos_request) {
 			pm_qos_add_request(&fl->pm_qos_req,
 				PM_QOS_CPU_DMA_LATENCY, latency);
@@ -4216,6 +4222,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		} else
 			pm_qos_update_request(&fl->pm_qos_req, latency);
 
+		mutex_unlock(&fl->pm_qos_mutex);
 		/* Ensure CPU feature map updated to DSP for early WakeUp */
 		fastrpc_send_cpuinfo_to_dsp(fl);
 		break;

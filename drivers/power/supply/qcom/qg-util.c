@@ -374,7 +374,13 @@ int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 		pr_err("Failed reading BAT_TEMP over ADC rc=%d\n", rc);
 		return rc;
 	}
-	pr_debug("batt_temp = %d\n", *temp);
+
+#if defined(CONFIG_TCT_PM7250_COMMON)
+#if defined(DISABLE_TEMPERATURE_DETECTION_AND_THERMAL_POLICY)
+	pr_debug("temperature fixed at 25 degree! The real temp is=%d\n", *temp);
+	*temp = 250;
+#endif
+#endif
 
 	return 0;
 }

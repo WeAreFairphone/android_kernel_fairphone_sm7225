@@ -3225,6 +3225,14 @@ static const struct xattr_handler shmem_trusted_xattr_handler = {
 	.set = shmem_xattr_handler_set,
 };
 
+//FP4-263, mount tmpfs on /data with tmpfs in production mode, liquan.zhou.t2m, 20210624
+// Task: 9949950, should support user.* in production mode
+static const struct xattr_handler shmem_user_xattr_handler = {
+	.prefix = XATTR_USER_PREFIX,
+	.get = shmem_xattr_handler_get,
+	.set = shmem_xattr_handler_set,
+};
+
 static const struct xattr_handler *shmem_xattr_handlers[] = {
 #ifdef CONFIG_TMPFS_POSIX_ACL
 	&posix_acl_access_xattr_handler,
@@ -3232,6 +3240,7 @@ static const struct xattr_handler *shmem_xattr_handlers[] = {
 #endif
 	&shmem_security_xattr_handler,
 	&shmem_trusted_xattr_handler,
+	&shmem_user_xattr_handler, // Task: 9949950  //FP4-263, mount tmpfs on /data with tmpfs in production mode, liquan.zhou.t2m, 20210624
 	NULL
 };
 
