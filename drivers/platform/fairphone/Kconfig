@@ -1,0 +1,24 @@
+# Fairphone configuration options
+
+config MACH_FAIRPHONE
+	bool "Fairphone device"
+	depends on ARCH_QCOM
+	help
+	  Support for Fairphone products
+
+config MACH_FAIRPHONE_LAGOON
+	bool "Fairphone lagoon"
+	depends on ARCH_LAGOON
+	select MACH_FAIRPHONE
+	help
+	  Support for Fairphone lagoon devices
+
+menu "Fairphone board selection"
+
+config MACH_FAIRPHONE_FP4
+	bool "Fairphone 4 board"
+	select MACH_FAIRPHONE_LAGOON
+	help
+	  Support for Fairphone 4
+
+endmenu
