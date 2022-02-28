@@ -155,6 +155,9 @@ enum esd_check_status_mode {
 	ESD_MODE_PANEL_TE,
 	ESD_MODE_SW_SIM_SUCCESS,
 	ESD_MODE_SW_SIM_FAILURE,
+#ifdef CONFIG_TOUCHSCREEN_FTS
+	ESD_MODE_I2C_REG_READ,
+#endif
 	ESD_MODE_MAX
 };
 
@@ -169,6 +172,13 @@ struct drm_panel_esd_config {
 	u8 *return_buf;
 	u8 *status_buf;
 	u32 groups;
+};
+
+struct drm_panel_otp_config {
+	bool otp_enabled;
+	struct dsi_panel_cmd_set otp_cmd;
+	u32 *status_cmds_rlen;
+	u8 *status_buf;
 };
 
 struct dsi_panel {
@@ -202,6 +212,7 @@ struct dsi_panel {
 	struct dsi_pinctrl_info pinctrl;
 	struct drm_panel_hdr_properties hdr_props;
 	struct drm_panel_esd_config esd_config;
+	struct drm_panel_otp_config otp_config;
 
 	struct dsi_parser_utils utils;
 
