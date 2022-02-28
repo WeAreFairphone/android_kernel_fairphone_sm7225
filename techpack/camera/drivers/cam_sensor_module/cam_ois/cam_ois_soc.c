@@ -83,6 +83,7 @@ int cam_ois_driver_soc_init(struct cam_ois_ctrl_t *o_ctrl)
 	struct cam_hw_soc_info         *soc_info = &o_ctrl->soc_info;
 	struct device_node             *of_node = NULL;
 	struct device_node             *of_parent = NULL;
+    struct cam_ois_dev             *pois_dev = o_ctrl->pois_dev;
 
 	if (!soc_info->dev) {
 		CAM_ERR(CAM_OIS, "soc_info is not initialized");
@@ -112,6 +113,30 @@ int cam_ois_driver_soc_init(struct cam_ois_ctrl_t *o_ctrl)
 		o_ctrl->io_master_info.cci_client->cci_device = o_ctrl->cci_num;
 		CAM_DBG(CAM_OIS, "cci-device %d", o_ctrl->cci_num, rc);
 
+	}
+	pois_dev->irq_gpio = of_get_named_gpio(of_node, "interrupt-gpios", 0);
+	if (pois_dev->irq_gpio < 0)
+	{
+	
+		CAM_DBG(CAM_OIS, "Looking up %s property failed. rc =  %d\n",
+			"interrupt-gpios", pois_dev->irq_gpio);
+	}
+	else
+	{
+		rc = gpio_request(pois_dev->irq_gpio, "OIS_VSYNC_INTERRUPT");
+		if (rc)
+		{
+			CAM_DBG(CAM_OIS, "Failed to request gpio %d,rc = %d",
+				pois_dev->irq_gpio, rc);
+		}
+		rc = gpio_direction_input(pois_dev->irq_gpio);
+		if (rc)
+		{
+		
+			CAM_DBG(CAM_OIS, "Unable to set direction for irq gpio [%d]\n",
+				pois_dev->irq_gpio);
+			gpio_free(pois_dev->irq_gpio);
+		}
 	}
 
 	rc = cam_ois_get_dt_data(o_ctrl);

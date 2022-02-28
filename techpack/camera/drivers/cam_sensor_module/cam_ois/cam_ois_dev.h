@@ -32,6 +32,34 @@ enum cam_ois_state {
 	CAM_OIS_START,
 };
 
+enum cam_ois_dev_state {
+	CAM_OIS_DEV_UNINIT,
+	CAM_OIS_DEV_INIT,
+	CAM_OIS_DEV_START,
+	CAM_OIS_DEV_STOP,
+};
+
+struct cam_ois_dev
+{
+	struct cdev devm;
+	struct class *ois_class;
+	struct cam_ois_ctrl_t *o_ctrl;
+	struct pinctrl *vsync_pinctrl;
+	struct pinctrl_state *pin_default;
+	uint64_t load_ois_timestamp;
+	int irq_gpio;
+	int ois_major;
+	int dev_state;
+	int need_read;
+	int reg_page_size;
+	struct page *reg_setting_page;
+	uint8_t *reg_data_buffer;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_setting;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_setting_for_buffer0;
+	struct mutex dev_mutex;
+	wait_queue_head_t queue;
+};
+
 /**
  * struct cam_ois_registered_driver_t - registered driver info
  * @platform_driver      :   flag indicates if platform driver is registered
@@ -106,6 +134,7 @@ struct cam_ois_intf_params {
 struct cam_ois_ctrl_t {
 	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct platform_device *pdev;
+	struct cam_ois_dev *pois_dev;
 	struct mutex ois_mutex;
 	struct cam_hw_soc_info soc_info;
 	struct camera_io_master io_master_info;

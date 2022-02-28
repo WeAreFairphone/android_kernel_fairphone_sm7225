@@ -46,6 +46,8 @@
 /* Max CSI Rx irq error count threshold value */
 #define CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT               100
 
+uint64_t time_stamp_val_for_cm401 = 0;
+
 static int cam_ife_csid_reset_regs(
 	struct cam_ife_csid_hw *csid_hw, bool reset_hw);
 
@@ -3459,6 +3461,7 @@ static int cam_ife_csid_get_time_stamp(
 		time_stamp->time_stamp_val,
 		CAM_IFE_CSID_QTIMER_MUL_FACTOR,
 		CAM_IFE_CSID_QTIMER_DIV_FACTOR);
+	time_stamp_val_for_cm401 = time_stamp->time_stamp_val;
 
 	if (!csid_hw->prev_boot_timestamp) {
 		get_monotonic_boottime64(&ts);

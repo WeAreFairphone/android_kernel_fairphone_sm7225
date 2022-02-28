@@ -45,6 +45,15 @@ enum cam_sensor_state_t {
 	CAM_SENSOR_START,
 };
 
+enum cam_sensor_power_state_t{
+	CAM_SENSOR_POWER_OFF,
+	CAM_SENSOR_POWER_ON
+};
+enum cam_sensor_setting_state_t{
+	CAM_SENSOR_SETTING_INVALID,
+	CAM_SENSOR_SETTING_SUCCESS,
+};
+
 /**
  * struct intf_params
  * @device_hdl: Device Handle
@@ -112,6 +121,8 @@ struct cam_sensor_ctrl_t {
 	uint32_t last_flush_req;
 	uint16_t pipeline_delay;
 	int32_t open_cnt;
+	enum cam_sensor_power_state_t power_stat;
+	enum cam_sensor_setting_state_t setting_stat;
 };
 
 #endif /* _CAM_SENSOR_DEV_H_ */

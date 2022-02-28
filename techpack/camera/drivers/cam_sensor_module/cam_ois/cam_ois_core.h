@@ -30,5 +30,19 @@ int cam_ois_driver_cmd(struct cam_ois_ctrl_t *e_ctrl, void *arg);
  */
 void cam_ois_shutdown(struct cam_ois_ctrl_t *o_ctrl);
 
+ssize_t ois_gyro_cali_data_show(struct device *dev, struct device_attribute *attr, char *buf);
+ssize_t ois_gyro_cali_data_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
+ssize_t ois_position_data_show(struct device *dev, struct device_attribute *attr, char *buf);
+ssize_t ois_position_data_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
+ssize_t ois_status_show(struct device *dev, struct device_attribute *attr, char *buf);
+ssize_t ois_status_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
+ssize_t ois_reg_show(struct device *dev, struct device_attribute *attr, char *buf);
+ssize_t ois_reg_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
+ssize_t ois_init_before_sr_test_show(struct device *dev, struct device_attribute *attr, char *buf);
+ssize_t ois_init_before_sr_test_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
+ssize_t ois_gain_set_store(struct device *dev,  struct device_attribute *attr, const char *buf, size_t count);
+ssize_t ois_gain_set_show(struct device *dev, struct device_attribute *attr, char *buf);
+ssize_t ois_timestamps_position_show(struct device *dev, struct device_attribute *attr, char *buf);
+
 #endif
 /* _CAM_OIS_CORE_H_ */
