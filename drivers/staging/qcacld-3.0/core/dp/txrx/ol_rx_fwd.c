@@ -208,6 +208,11 @@ ol_rx_fwd_check(struct ol_txrx_vdev_t *vdev,
 								 pdev->htt_pdev,
 								 rx_desc);
 
+			if (pdev->cfg.is_high_latency)
+				off = htt_rx_msdu_rx_desc_size_hl(
+								 pdev->htt_pdev,
+								 rx_desc);
+
 			if (vdev->opmode == wlan_op_mode_ap &&
 			    __qdf_nbuf_data_is_ipv4_eapol_pkt(
 						   qdf_nbuf_data(msdu) + off) &&
