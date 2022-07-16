@@ -669,6 +669,7 @@ static int dsi_panel_wled_register(struct dsi_panel *panel,
 	return 0;
 }
 
+#if !defined(CONFIG_PXLW_IRIS)
 static int dsi_panel_dcs_set_display_brightness_c2(struct mipi_dsi_device *dsi,
 			u32 bl_lvl)
 {
@@ -682,6 +683,7 @@ static int dsi_panel_dcs_set_display_brightness_c2(struct mipi_dsi_device *dsi,
 
 	return mipi_dsi_dcs_write(dsi, 0xC2, payload, sizeof(payload));
 }
+#endif
 
 
 
