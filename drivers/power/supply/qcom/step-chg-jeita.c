@@ -893,7 +893,6 @@ update_time:
 	chip->step_last_update_time = ktime_get();
 	return 0;
 }
-#endif
 
 static void handle_jeita_fcc_scaling(struct step_chg_info *chip)
 {
@@ -964,6 +963,7 @@ static void handle_jeita_fcc_scaling(struct step_chg_info *chip)
 			chip->jeita_last_update_temp);
 	}
 }
+#endif
 
 #if defined(CONFIG_TCT_PM7250_COMMON)
 #define FV_LVL_1	(300000)
